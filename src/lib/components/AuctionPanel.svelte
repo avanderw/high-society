@@ -1,0 +1,97 @@
+<script lang="ts">
+	import type { Auction } from '$lib/domain/auction';
+	import type { Player } from '$lib/domain/player';
+
+	interface Props {
+		auction: Auction | null;
+		currentPlayer: Player;
+		currentPlayerIndex: number;
+		allPlayers: Player[];
+		onBid: () => void;
+		onPass: () => void;
+		selectedTotal: number;
+	}
+
+	let { auction, currentPlayer, currentPlayerIndex, allPlayers, onBid, onPass, selectedTotal }: Props = $props();
+
+	const isActive = $derived((playerId: string) => 
+		auction?.getActivePlayers().has(playerId) ?? false
+	);
+
+	const currentBid = $derived(auction?.getCurrentHighestBid() ?? 0);
+	const canBid = $derived(selectedTotal > currentBid);
+</script>
+
+<article>
+	<header>
+		<h3>Auction</h3>
+	</header>
+
+	<section>
+		<p><strong>Current Player:</strong> {currentPlayer.name}</p>
+		<p><strong>Current Highest Bid:</strong> {currentBid.toLocaleString()} Francs</p>
+		<p><strong>Your Selected Bid:</strong> {selectedTotal.toLocaleString()} Francs</p>
+
+		<details>
+			<summary>Active Players</summary>
+			<ul>
+				{#each allPlayers as player, index}
+					<li>
+						<span style="color: {player.color};">●</span>
+						{player.name}
+						{#if index === currentPlayerIndex}
+							<mark>Current Turn</mark>
+						{/if}
+						{#if !isActive(player.id)}
+							<small>(Passed)</small>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		</details>
+	</section>
+
+	<footer>
+		<div class="grid">
+			<button 
+				onclick={onBid} 
+				disabled={!canBid || selectedTotal === 0}
+				class="primary"
+			>
+				Place Bid ({selectedTotal.toLocaleString()})
+			</button>
+			<button 
+				onclick={onPass}
+				class="secondary"
+			>
+				Pass
+			</button>
+		</div>
+		{#if !canBid && selectedTotal > 0}
+			<small style="color: var(--pico-del-color);">
+				Your bid must be higher than {currentBid.toLocaleString()}
+			</small>
+		{/if}
+	</footer>
+</article>
+
+<style>
+	ul {
+		list-style: none;
+		padding: 0;
+	}
+
+	li {
+		padding: 0.5rem;
+		margin: 0.25rem 0;
+	}
+
+	mark {
+		padding: 0.25rem 0.5rem;
+		margin-left: 0.5rem;
+	}
+
+	footer {
+		margin-top: 1rem;
+	}
+</style>
