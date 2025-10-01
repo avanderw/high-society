@@ -16,6 +16,12 @@
 	let selectedMoneyCards = $state<string[]>([]);
 	let errorMessage = $state<string>('');
 	let showLuxuryDiscard = $state(false);
+	
+	// Derived state to force reactivity
+	const currentPhase = $derived(gameState?.getCurrentPhase());
+	const currentAuction = $derived(gameState?.getCurrentAuction());
+	const currentPlayerObj = $derived(gameState?.getCurrentPlayer());
+	const allPlayers = $derived(gameState?.getPlayers() ?? []);
 
 	function startGame(playerNames: string[]) {
 		try {
@@ -59,14 +65,15 @@
 				completeAuction();
 			} else {
 				gameState.nextPlayer();
+				// Force reactivity update
+				gameState = gameState;
 			}
-
-			gameState = gameState;
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Invalid bid';
 			// Return cards if bid failed
 			const currentPlayer = gameState.getCurrentPlayer();
 			currentPlayer.returnPlayedMoney();
+			// Force reactivity update
 			gameState = gameState;
 		}
 	}
@@ -93,11 +100,13 @@
 					nextIndex = (nextIndex + 1) % gameState.getPlayers().length;
 				}
 				gameState.setCurrentPlayerIndex(nextIndex);
+				// Force reactivity update
+				gameState = gameState;
 			}
-
-			gameState = gameState;
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Cannot pass';
+			// Force reactivity update
+			gameState = gameState;
 		}
 	}
 
@@ -110,14 +119,16 @@
 		const winner = gameState.getPlayers().find(p => p.getPendingLuxuryDiscard());
 		if (winner && winner.getLuxuryCards().length > 0) {
 			showLuxuryDiscard = true;
+			// Force reactivity update
+			gameState = gameState;
 		} else {
 			// Start next round
 			if (gameState.getCurrentPhase() !== GamePhase.SCORING) {
 				gameState.startNewRound();
 			}
+			// Force reactivity update
+			gameState = gameState;
 		}
-
-		gameState = gameState;
 	}
 
 	function handleLuxuryDiscard(cardId: string) {
@@ -135,6 +146,7 @@
 			gameState.startNewRound();
 		}
 
+		// Force reactivity update
 		gameState = gameState;
 	}
 
@@ -160,9 +172,9 @@
 
 	{#if !gameState}
 		<GameSetup onStart={startGame} />
-	{:else if gameState.getCurrentPhase() === GamePhase.SCORING || gameState.getCurrentPhase() === GamePhase.FINISHED}
+	{:else if currentPhase === GamePhase.SCORING || currentPhase === GamePhase.FINISHED}
 		<ScoreBoard 
-			players={gameState.getPlayers()} 
+			players={allPlayers} 
 			scoringService={new GameScoringService()}
 			onNewGame={newGame}
 		/>
@@ -178,29 +190,29 @@
 
 			<div class="grid">
 				<AuctionPanel 
-					auction={gameState.getCurrentAuction()}
-					currentPlayer={gameState.getCurrentPlayer()}
+					auction={currentAuction ?? null}
+					currentPlayer={currentPlayerObj!}
 					currentPlayerIndex={gameState.getCurrentPlayerIndex()}
-					allPlayers={gameState.getPlayers()}
+					allPlayers={allPlayers}
 					onBid={placeBid}
 					onPass={pass}
 					selectedTotal={selectedMoneyCards.reduce((sum, id) => {
-						const card = gameState?.getCurrentPlayer().getMoneyHand().find(c => c.id === id);
+						const card = currentPlayerObj?.getMoneyHand().find(c => c.id === id);
 						return sum + (card?.value || 0);
 					}, 0)}
 				/>
 
-				<StatusDisplay players={gameState.getPlayers()} />
+				<StatusDisplay players={allPlayers} />
 			</div>
 
 			<PlayerHand 
-				player={gameState.getCurrentPlayer()}
+				player={currentPlayerObj!}
 				selectedCards={selectedMoneyCards}
 				onToggleCard={toggleMoneyCard}
 			/>
 
 			{#if showLuxuryDiscard}
-				{#each gameState.getPlayers() as player}
+				{#each allPlayers as player}
 					{#if player.getPendingLuxuryDiscard() && player.getLuxuryCards().length > 0}
 						<LuxuryDiscardModal 
 							player={player}
