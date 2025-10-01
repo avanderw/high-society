@@ -98,7 +98,16 @@
 			} else {
 				console.log('Moving to next player...');
 				console.log('Active players before next:', Array.from(auction.getActivePlayers()));
-				gameState.nextPlayer();
+				
+				// Find next active player
+				let nextIndex = (gameState.getCurrentPlayerIndex() + 1) % gameState.getPlayers().length;
+				let attempts = 0;
+				while (!auction.getActivePlayers().has(gameState.getPlayers()[nextIndex].id) && attempts < gameState.getPlayers().length) {
+					nextIndex = (nextIndex + 1) % gameState.getPlayers().length;
+					attempts++;
+				}
+				gameState.setCurrentPlayerIndex(nextIndex);
+				
 				console.log('New current player:', gameState.getCurrentPlayer().name);
 				console.log('New current player index:', gameState.getCurrentPlayerIndex());
 				console.log('Is new player active?', auction.getActivePlayers().has(gameState.getCurrentPlayer().id));
