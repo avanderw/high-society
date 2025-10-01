@@ -18,9 +18,9 @@
 	let showLuxuryDiscard = $state(false);
 	let updateCounter = $state(0); // Force update counter
 	
-	// Derived state to force reactivity
-	const currentPhase = $derived(gameState?.getCurrentPhase());
-	const currentAuction = $derived(gameState?.getCurrentAuction());
+	// Derived state to force reactivity - all depend on updateCounter
+	const currentPhase = $derived(updateCounter >= 0 ? gameState?.getCurrentPhase() : undefined);
+	const currentAuction = $derived(updateCounter >= 0 ? gameState?.getCurrentAuction() : null);
 	const currentPlayerIndex = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayerIndex() : -1);
 	const currentPlayerObj = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayer() : undefined);
 	const allPlayers = $derived(updateCounter >= 0 ? gameState?.getPlayers() ?? [] : []);
@@ -220,7 +220,7 @@
 				</article>
 			{/if}
 
-			<GameBoard gameState={gameState} />
+			<GameBoard gameState={gameState} updateKey={updateCounter} />
 
 			<div class="grid">
 				{#if currentPlayerObj && currentPlayerIndex !== undefined}
@@ -235,10 +235,11 @@
 							const card = currentPlayerObj?.getMoneyHand().find(c => c.id === id);
 							return sum + (card?.value || 0);
 						}, 0)}
+						updateKey={updateCounter}
 					/>
 				{/if}
 
-				<StatusDisplay players={allPlayers} />
+				<StatusDisplay players={allPlayers} updateKey={updateCounter} />
 			</div>
 
 			{#if currentPlayerObj}
@@ -246,6 +247,7 @@
 					player={currentPlayerObj}
 					selectedCards={selectedMoneyCards}
 					onToggleCard={toggleMoneyCard}
+					updateKey={updateCounter}
 				/>
 			{/if}
 

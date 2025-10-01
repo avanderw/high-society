@@ -4,11 +4,12 @@
 
 	interface Props {
 		gameState: GameState;
+		updateKey?: number;
 	}
 
-	let { gameState }: Props = $props();
+	let { gameState, updateKey = 0 }: Props = $props();
 
-	const publicState = $derived(gameState.getPublicState());
+	const publicState = $derived(updateKey >= 0 ? gameState.getPublicState() : gameState.getPublicState());
 	const currentCard = $derived(publicState.currentCard);
 	const phase = $derived(publicState.phase);
 </script>
