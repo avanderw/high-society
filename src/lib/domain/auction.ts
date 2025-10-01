@@ -47,12 +47,15 @@ export class RegularAuction extends Auction {
   processBid(player: Player, moneyCards: MoneyCard[]): AuctionResult {
     this.validatePlayerActive(player);
 
+    const previousBid = player.getCurrentBidAmount();
     player.playMoneyCards(moneyCards);
     const newBid = player.getCurrentBidAmount();
 
+    // New bid must be higher than the current highest bid
     if (newBid <= this.currentHighestBid) {
+      // Undo the bid by returning ALL played money
       player.returnPlayedMoney();
-      throw new Error('Bid must be higher than current bid');
+      throw new Error(`Bid must be higher than ${this.currentHighestBid.toLocaleString()} Francs (your bid: ${newBid.toLocaleString()})`);
     }
 
     this.currentHighestBid = newBid;

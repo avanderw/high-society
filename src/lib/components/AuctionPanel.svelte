@@ -19,7 +19,9 @@
 	);
 
 	const currentBid = $derived(auction?.getCurrentHighestBid() ?? 0);
-	const canBid = $derived(selectedTotal > currentBid);
+	const playerCurrentBid = $derived(currentPlayer.getCurrentBidAmount());
+	const newTotalBid = $derived(playerCurrentBid + selectedTotal);
+	const canBid = $derived(newTotalBid > currentBid);
 </script>
 
 <article>
@@ -30,7 +32,13 @@
 	<section>
 		<p><strong>Current Player:</strong> {currentPlayer.name}</p>
 		<p><strong>Current Highest Bid:</strong> {currentBid.toLocaleString()} Francs</p>
-		<p><strong>Your Selected Bid:</strong> {selectedTotal.toLocaleString()} Francs</p>
+		{#if currentPlayer.getCurrentBidAmount() > 0}
+			<p><strong>Your Current Bid:</strong> {currentPlayer.getCurrentBidAmount().toLocaleString()} Francs</p>
+			<p><strong>Adding:</strong> {selectedTotal.toLocaleString()} Francs</p>
+			<p><strong>New Total:</strong> {(currentPlayer.getCurrentBidAmount() + selectedTotal).toLocaleString()} Francs</p>
+		{:else}
+			<p><strong>Your Selected Bid:</strong> {selectedTotal.toLocaleString()} Francs</p>
+		{/if}
 
 		<details>
 			<summary>Active Players</summary>
@@ -69,7 +77,7 @@
 		</div>
 		{#if !canBid && selectedTotal > 0}
 			<small style="color: var(--pico-del-color);">
-				Your bid must be higher than {currentBid.toLocaleString()}
+				Your new total ({newTotalBid.toLocaleString()}) must be higher than {currentBid.toLocaleString()}
 			</small>
 		{/if}
 	</footer>
