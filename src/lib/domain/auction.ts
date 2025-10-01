@@ -70,7 +70,14 @@ export class RegularAuction extends Auction {
     player.returnPlayedMoney();
     this.activePlayers.delete(player.id);
 
-    return this.activePlayers.size <= 1 ? AuctionResult.COMPLETE : AuctionResult.CONTINUE;
+    // If only one player remains, they win (even if no one bid)
+    if (this.activePlayers.size === 1) {
+      const lastPlayerId = Array.from(this.activePlayers)[0];
+      this.currentWinner = this.players.find(p => p.id === lastPlayerId) || null;
+      return AuctionResult.COMPLETE;
+    }
+
+    return this.activePlayers.size === 0 ? AuctionResult.COMPLETE : AuctionResult.CONTINUE;
   }
 
   isComplete(): boolean {
@@ -78,7 +85,7 @@ export class RegularAuction extends Auction {
   }
 
   getWinner(): Player | null {
-    return this.isComplete() ? this.currentWinner : null;
+    return this.currentWinner;
   }
 }
 
