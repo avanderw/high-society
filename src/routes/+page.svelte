@@ -16,12 +16,14 @@
 	let selectedMoneyCards = $state<string[]>([]);
 	let errorMessage = $state<string>('');
 	let showLuxuryDiscard = $state(false);
+	let updateCounter = $state(0); // Force update counter
 	
 	// Derived state to force reactivity
 	const currentPhase = $derived(gameState?.getCurrentPhase());
 	const currentAuction = $derived(gameState?.getCurrentAuction());
-	const currentPlayerObj = $derived(gameState?.getCurrentPlayer());
-	const allPlayers = $derived(gameState?.getPlayers() ?? []);
+	const currentPlayerIndex = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayerIndex() : -1);
+	const currentPlayerObj = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayer() : undefined);
+	const allPlayers = $derived(updateCounter >= 0 ? gameState?.getPlayers() ?? [] : []);
 
 	function startGame(playerNames: string[]) {
 		try {
@@ -31,6 +33,7 @@
 			gameState = game;
 			selectedMoneyCards = [];
 			errorMessage = '';
+			updateCounter = 0;
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to start game';
 		}
@@ -52,29 +55,51 @@
 		
 		if (!auction || !currentPlayer) return;
 
+		console.log('=== PLACE BID ===');
+		console.log('Current player before bid:', currentPlayer.name);
+		console.log('Current player index:', gameState.getCurrentPlayerIndex());
+		console.log('Selected cards:', selectedMoneyCards);
+		console.log('Current highest bid:', auction.getCurrentHighestBid());
+
 		try {
 			const moneyCards = selectedMoneyCards
 				.map(id => currentPlayer.getMoneyHand().find(c => c.id === id))
 				.filter((c): c is MoneyCard => c !== undefined);
 
+			if (moneyCards.length === 0) {
+				errorMessage = 'Please select at least one money card';
+				return;
+			}
+
+			console.log('Money cards to play:', moneyCards.map(c => c.value));
+			console.log('Player current bid before:', currentPlayer.getCurrentBidAmount());
+
 			const result = auction.processBid(currentPlayer, moneyCards);
+			
+			console.log('Player current bid after:', currentPlayer.getCurrentBidAmount());
+			console.log('Auction highest bid after:', auction.getCurrentHighestBid());
+			console.log('Bid result:', result);
+
 			selectedMoneyCards = [];
 			errorMessage = '';
 
 			if (result === AuctionResult.COMPLETE) {
 				completeAuction();
 			} else {
+				console.log('Moving to next player...');
 				gameState.nextPlayer();
+				console.log('New current player:', gameState.getCurrentPlayer().name);
+				console.log('New current player index:', gameState.getCurrentPlayerIndex());
 				// Force reactivity update
-				gameState = gameState;
+				updateCounter++;
 			}
 		} catch (error) {
+			console.error('Bid error:', error);
 			errorMessage = error instanceof Error ? error.message : 'Invalid bid';
-			// Return cards if bid failed
-			const currentPlayer = gameState.getCurrentPlayer();
-			currentPlayer.returnPlayedMoney();
+			// Clear selection since bid failed
+			selectedMoneyCards = [];
 			// Force reactivity update
-			gameState = gameState;
+			updateCounter++;
 		}
 	}
 
@@ -101,12 +126,12 @@
 				}
 				gameState.setCurrentPlayerIndex(nextIndex);
 				// Force reactivity update
-				gameState = gameState;
+				updateCounter++;
 			}
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Cannot pass';
 			// Force reactivity update
-			gameState = gameState;
+			updateCounter++;
 		}
 	}
 
@@ -120,14 +145,14 @@
 		if (winner && winner.getLuxuryCards().length > 0) {
 			showLuxuryDiscard = true;
 			// Force reactivity update
-			gameState = gameState;
+			updateCounter++;
 		} else {
 			// Start next round
 			if (gameState.getCurrentPhase() !== GamePhase.SCORING) {
 				gameState.startNewRound();
 			}
 			// Force reactivity update
-			gameState = gameState;
+			updateCounter++;
 		}
 	}
 
@@ -147,7 +172,7 @@
 		}
 
 		// Force reactivity update
-		gameState = gameState;
+		updateCounter++;
 	}
 
 	function newGame() {
@@ -155,11 +180,20 @@
 		selectedMoneyCards = [];
 		errorMessage = '';
 		showLuxuryDiscard = false;
+		updateCounter = 0;
 	}
 
 	$effect(() => {
 		if (gameState && gameState.getCurrentPhase() === GamePhase.SCORING) {
 			// Game has ended, scoring will be displayed
+		}
+	});
+
+	// Clear selected cards when current player changes
+	$effect(() => {
+		if (currentPlayerObj) {
+			// Clear any selected cards when player changes
+			selectedMoneyCards = [];
 		}
 	});
 </script>
@@ -189,27 +223,31 @@
 			<GameBoard gameState={gameState} />
 
 			<div class="grid">
-				<AuctionPanel 
-					auction={currentAuction ?? null}
-					currentPlayer={currentPlayerObj!}
-					currentPlayerIndex={gameState.getCurrentPlayerIndex()}
-					allPlayers={allPlayers}
-					onBid={placeBid}
-					onPass={pass}
-					selectedTotal={selectedMoneyCards.reduce((sum, id) => {
-						const card = currentPlayerObj?.getMoneyHand().find(c => c.id === id);
-						return sum + (card?.value || 0);
-					}, 0)}
-				/>
+				{#if currentPlayerObj && currentPlayerIndex !== undefined}
+					<AuctionPanel 
+						auction={currentAuction ?? null}
+						currentPlayer={currentPlayerObj}
+						currentPlayerIndex={currentPlayerIndex}
+						allPlayers={allPlayers}
+						onBid={placeBid}
+						onPass={pass}
+						selectedTotal={selectedMoneyCards.reduce((sum, id) => {
+							const card = currentPlayerObj?.getMoneyHand().find(c => c.id === id);
+							return sum + (card?.value || 0);
+						}, 0)}
+					/>
+				{/if}
 
 				<StatusDisplay players={allPlayers} />
 			</div>
 
-			<PlayerHand 
-				player={currentPlayerObj!}
-				selectedCards={selectedMoneyCards}
-				onToggleCard={toggleMoneyCard}
-			/>
+			{#if currentPlayerObj}
+				<PlayerHand 
+					player={currentPlayerObj}
+					selectedCards={selectedMoneyCards}
+					onToggleCard={toggleMoneyCard}
+				/>
+			{/if}
 
 			{#if showLuxuryDiscard}
 				{#each allPlayers as player}
