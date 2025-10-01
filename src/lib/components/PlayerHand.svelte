@@ -5,12 +5,13 @@
 		player: Player;
 		selectedCards: string[];
 		onToggleCard: (cardId: string) => void;
+		updateKey?: number;
 	}
 
-	let { player, selectedCards, onToggleCard }: Props = $props();
+	let { player, selectedCards, onToggleCard, updateKey = 0 }: Props = $props();
 
-	const moneyHand = $derived(player.getMoneyHand());
-	const playedMoney = $derived(player.getPlayedMoney());
+	const moneyHand = $derived(updateKey >= 0 ? player.getMoneyHand() : []);
+	const playedMoney = $derived(updateKey >= 0 ? player.getPlayedMoney() : []);
 	const totalSelected = $derived(
 		selectedCards.reduce((sum, id) => {
 			const card = moneyHand.find(c => c.id === id);

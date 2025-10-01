@@ -10,16 +10,17 @@
 		onBid: () => void;
 		onPass: () => void;
 		selectedTotal: number;
+		updateKey?: number;
 	}
 
-	let { auction, currentPlayer, currentPlayerIndex, allPlayers, onBid, onPass, selectedTotal }: Props = $props();
+	let { auction, currentPlayer, currentPlayerIndex, allPlayers, onBid, onPass, selectedTotal, updateKey = 0 }: Props = $props();
 
 	const isActive = $derived((playerId: string) => 
 		auction?.getActivePlayers().has(playerId) ?? false
 	);
 
-	const currentBid = $derived(auction?.getCurrentHighestBid() ?? 0);
-	const playerCurrentBid = $derived(currentPlayer.getCurrentBidAmount());
+	const currentBid = $derived(updateKey >= 0 ? auction?.getCurrentHighestBid() ?? 0 : 0);
+	const playerCurrentBid = $derived(updateKey >= 0 ? currentPlayer.getCurrentBidAmount() : 0);
 	const newTotalBid = $derived(playerCurrentBid + selectedTotal);
 	const canBid = $derived(newTotalBid > currentBid);
 </script>

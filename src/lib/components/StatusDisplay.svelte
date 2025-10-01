@@ -5,18 +5,19 @@
 
 	interface Props {
 		players: Player[];
+		updateKey?: number;
 	}
 
-	let { players }: Props = $props();
+	let { players, updateKey = 0 }: Props = $props();
 
 	const calculator = new StatusCalculator();
 
 	const playerStatuses = $derived(
-		players.map(player => ({
+		updateKey >= 0 ? players.map(player => ({
 			player,
 			currentStatus: calculator.calculate(player.getStatusCards()),
 			statusCards: player.getStatusCards()
-		}))
+		})) : []
 	);
 </script>
 
