@@ -30,6 +30,14 @@
 			const game = new GameState('game-' + Date.now());
 			game.initializeGame(playerNames);
 			game.startNewRound();
+			console.log('=== GAME STARTED ===');
+			console.log('Starting player index:', game.getCurrentPlayerIndex());
+			console.log('Starting player:', game.getCurrentPlayer().name);
+			console.log('All players:', game.getPlayers().map(p => `${p.name} (${p.id})`));
+			const auction = game.getCurrentAuction();
+			if (auction) {
+				console.log('Active players in auction:', Array.from(auction.getActivePlayers()));
+			}
 			gameState = game;
 			selectedMoneyCards = [];
 			errorMessage = '';
@@ -56,10 +64,12 @@
 		if (!auction || !currentPlayer) return;
 
 		console.log('=== PLACE BID ===');
-		console.log('Current player before bid:', currentPlayer.name);
+		console.log('Current player before bid:', currentPlayer.name, 'ID:', currentPlayer.id);
 		console.log('Current player index:', gameState.getCurrentPlayerIndex());
 		console.log('Selected cards:', selectedMoneyCards);
 		console.log('Current highest bid:', auction.getCurrentHighestBid());
+		console.log('Active players in auction:', Array.from(auction.getActivePlayers()));
+		console.log('Is current player active?', auction.getActivePlayers().has(currentPlayer.id));
 
 		try {
 			const moneyCards = selectedMoneyCards
@@ -87,9 +97,11 @@
 				completeAuction();
 			} else {
 				console.log('Moving to next player...');
+				console.log('Active players before next:', Array.from(auction.getActivePlayers()));
 				gameState.nextPlayer();
 				console.log('New current player:', gameState.getCurrentPlayer().name);
 				console.log('New current player index:', gameState.getCurrentPlayerIndex());
+				console.log('Is new player active?', auction.getActivePlayers().has(gameState.getCurrentPlayer().id));
 				// Force reactivity update
 				updateCounter++;
 			}
