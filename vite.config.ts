@@ -7,10 +7,11 @@ export default defineConfig({
 		sveltekit(),
 		SvelteKitPWA({
 			srcDir: './src',
-			mode: 'development',
+			mode: 'production',
 			strategies: 'generateSW',
 			scope: '/',
 			base: '/',
+			includeAssets: ['favicon.svg', 'robots.txt'],
 			manifest: {
 				name: 'High Society Card Game',
 				short_name: 'High Society',
@@ -18,28 +19,32 @@ export default defineConfig({
 				theme_color: '#1095c1',
 				background_color: '#11191f',
 				display: 'standalone',
+				orientation: 'portrait',
 				start_url: '/',
+				scope: '/',
 				icons: [
 					{
 						src: '/icon-192.png',
 						sizes: '192x192',
-						type: 'image/png'
-					},
-					{
-						src: '/icon-512.png',
-						sizes: '512x512',
-						type: 'image/png'
+						type: 'image/png',
+						purpose: 'any'
 					},
 					{
 						src: '/icon-512.png',
 						sizes: '512x512',
 						type: 'image/png',
-						purpose: 'any maskable'
+						purpose: 'any'
+					},
+					{
+						src: '/icon-512.png',
+						sizes: '512x512',
+						type: 'image/png',
+						purpose: 'maskable'
 					}
 				]
 			},
 			workbox: {
-				globPatterns: ['**/*.{js,css,html,svg,png,ico,txt,woff,woff2}'],
+				globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,woff,woff2}'],
 				runtimeCaching: [
 					{
 						urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -58,8 +63,11 @@ export default defineConfig({
 				],
 				navigateFallback: null,
 				cleanupOutdatedCaches: true,
-				skipWaiting: false,
-				clientsClaim: false
+				skipWaiting: true,
+				clientsClaim: true
+			},
+			kit: {
+				includeVersionFile: true
 			},
 			devOptions: {
 				enabled: true,

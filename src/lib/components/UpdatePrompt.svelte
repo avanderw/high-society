@@ -3,59 +3,62 @@
 
 	let updateAvailable = $state(false);
 	let registration: ServiceWorkerRegistration | null = null;
+	let hasShownPrompt = false;
 
 	onMount(() => {
 		if ('serviceWorker' in navigator) {
-			// Check for updates every 30 seconds
-			const interval = setInterval(() => {
-				navigator.serviceWorker.getRegistration().then((reg) => {
-					if (reg) {
-						reg.update();
-					}
-				});
-			}, 30000);
+			// Listen for controller change (new SW activated)
+			let refreshing = false;
+			navigator.serviceWorker.addEventListener('controllerchange', () => {
+				if (!refreshing) {
+					refreshing = true;
+					window.location.reload();
+				}
+			});
 
-			// Listen for service worker updates
+			// Wait for service worker to be ready
 			navigator.serviceWorker.ready.then((reg) => {
 				registration = reg;
 
-				// Check if there's a waiting service worker
-				if (reg.waiting) {
+				// Check for updates every 60 seconds (not too aggressive)
+				const interval = setInterval(() => {
+					if (reg && !hasShownPrompt) {
+						reg.update();
+					}
+				}, 60000);
+
+				// Check if there's already a waiting service worker
+				if (reg.waiting && !hasShownPrompt) {
 					updateAvailable = true;
+					hasShownPrompt = true;
 				}
 
-				// Listen for new service worker
+				// Listen for new service worker being installed
 				reg.addEventListener('updatefound', () => {
 					const newWorker = reg.installing;
-					if (newWorker) {
-						newWorker.addEventListener('statechange', () => {
-							if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-								// New service worker is ready
-								updateAvailable = true;
-							}
-						});
-					}
+					if (!newWorker) return;
+
+					newWorker.addEventListener('statechange', () => {
+						if (newWorker.state === 'installed' && navigator.serviceWorker.controller && !hasShownPrompt) {
+							// New service worker is ready
+							updateAvailable = true;
+							hasShownPrompt = true;
+						}
+					});
 				});
-			});
 
-			// Listen for messages from service worker
-			navigator.serviceWorker.addEventListener('controllerchange', () => {
-				// Service worker has been updated and is now controlling the page
-				window.location.reload();
+				return () => {
+					clearInterval(interval);
+				};
 			});
-
-			return () => {
-				clearInterval(interval);
-			};
 		}
 	});
 
 	function updateApp() {
+		updateAvailable = false;
 		if (registration && registration.waiting) {
-			// Tell the service worker to skip waiting and activate immediately
+			// Tell the service worker to skip waiting
 			registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-			// Also manually call skipWaiting on the waiting worker
-			registration.waiting.postMessage('skipWaiting');
 		}
 	}
 
