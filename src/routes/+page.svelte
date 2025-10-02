@@ -11,6 +11,7 @@
 	import StatusDisplay from '$lib/components/StatusDisplay.svelte';
 	import ScoreBoard from '$lib/components/ScoreBoard.svelte';
 	import LuxuryDiscardModal from '$lib/components/LuxuryDiscardModal.svelte';
+	import UpdatePrompt from '$lib/components/UpdatePrompt.svelte';
 
 	let gameState = $state<GameState | null>(null);
 	let selectedMoneyCards = $state<string[]>([]);
@@ -218,6 +219,8 @@
 		}
 	});
 </script>
+
+<UpdatePrompt />
 
 <main class="container">
 	<header>
