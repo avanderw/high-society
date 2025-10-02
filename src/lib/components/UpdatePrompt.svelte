@@ -52,8 +52,10 @@
 
 	function updateApp() {
 		if (registration && registration.waiting) {
-			// Tell the service worker to skip waiting
+			// Tell the service worker to skip waiting and activate immediately
 			registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+			// Also manually call skipWaiting on the waiting worker
+			registration.waiting.postMessage('skipWaiting');
 		}
 	}
 
