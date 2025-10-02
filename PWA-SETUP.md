@@ -93,11 +93,11 @@ PWA features are enabled in development mode for testing:
 - Cache patterns
 - Service worker strategy
 
-### `src/service-worker.ts`
-- Custom service worker implementation
-- Cache management
-- Update lifecycle
-- Fetch strategies
+### Service Worker (Auto-generated)
+- Workbox generates the service worker automatically
+- Cache management handled by Workbox
+- Update lifecycle managed by PWA plugin
+- Configurable through `vite.config.ts`
 
 ### `src/lib/components/UpdatePrompt.svelte`
 - Update notification UI

@@ -8,8 +8,7 @@ export default defineConfig({
 		SvelteKitPWA({
 			srcDir: './src',
 			mode: 'development',
-			strategies: 'injectManifest',
-			filename: 'service-worker.ts',
+			strategies: 'generateSW',
 			scope: '/',
 			base: '/',
 			manifest: {
@@ -39,8 +38,28 @@ export default defineConfig({
 					}
 				]
 			},
-			injectManifest: {
-				globPatterns: ['**/*.{js,css,html,svg,png,ico,txt}']
+			workbox: {
+				globPatterns: ['**/*.{js,css,html,svg,png,ico,txt,woff,woff2}'],
+				runtimeCaching: [
+					{
+						urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+						handler: 'CacheFirst',
+						options: {
+							cacheName: 'google-fonts-cache',
+							expiration: {
+								maxEntries: 10,
+								maxAgeSeconds: 60 * 60 * 24 * 365 // 365 days
+							},
+							cacheableResponse: {
+								statuses: [0, 200]
+							}
+						}
+					}
+				],
+				navigateFallback: null,
+				cleanupOutdatedCaches: true,
+				skipWaiting: false,
+				clientsClaim: false
 			},
 			devOptions: {
 				enabled: true,

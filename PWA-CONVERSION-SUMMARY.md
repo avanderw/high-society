@@ -17,16 +17,15 @@ Added `SvelteKitPWA` plugin with:
 - **Dev Mode**: Enabled for testing during development
 - **Glob Patterns**: Caches all JS, CSS, HTML, SVG, PNG, ICO, TXT files
 
-### 3. Created Custom Service Worker ✅
-**File**: `src/service-worker.ts`
+### 3. Auto-Generated Service Worker ✅
+**Strategy**: `generateSW` (Workbox auto-generates the service worker)
 
-Implements:
-- **Version-based caching**: `high-society-cache-${version}`
-- **Install handler**: Caches all build and static files immediately
-- **Activate handler**: Deletes old caches and claims all clients
-- **Fetch handler**: Cache-first strategy with network fallback
-- **Message handler**: Listens for `SKIP_WAITING` to force update
-- **Error handling**: Returns 408 status on network failure
+Features:
+- **Automatic caching**: Caches all built files and static assets
+- **Runtime caching**: Configurable cache strategies for different resources
+- **Old cache cleanup**: Automatically deletes outdated caches
+- **Google Fonts caching**: Special cache strategy for external fonts
+- **Offline support**: Cache-first strategy for all app resources
 
 ### 4. Created Update Prompt Component ✅
 **File**: `src/lib/components/UpdatePrompt.svelte`
@@ -131,12 +130,12 @@ npm run preview
 ## Files Modified/Created
 
 ### Modified:
-- `vite.config.ts` - Added PWA plugin configuration
+- `vite.config.ts` - Added PWA plugin configuration with generateSW strategy
 - `src/routes/+page.svelte` - Added UpdatePrompt component
+- `src/routes/+layout.ts` - Added prerender and SSR configuration
 - `package.json` - Already had correct scripts
 
 ### Created:
-- `src/service-worker.ts` - Custom service worker
 - `src/lib/components/UpdatePrompt.svelte` - Update notification UI
 - `icon-generator.html` - Icon generation tool
 - `PWA-SETUP.md` - Setup documentation
