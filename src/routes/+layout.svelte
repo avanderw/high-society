@@ -8,7 +8,8 @@
 	// Register service worker
 	onMount(() => {
 		if ('serviceWorker' in navigator) {
-			navigator.serviceWorker.register('/sw.js', { scope: '/' })
+			const base = import.meta.env.BASE_URL || '/';
+			navigator.serviceWorker.register(`${base}sw.js`, { scope: base })
 				.then((registration) => {
 					console.log('Service Worker registered:', registration);
 				})

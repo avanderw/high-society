@@ -2,15 +2,19 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 
+// Use /high-society/ for production (GitHub Pages), / for local dev
+const base = '/high-society/';
+
 export default defineConfig({
+	base,
 	plugins: [
 		sveltekit(),
 		SvelteKitPWA({
 			srcDir: './src',
 			mode: 'production',
 			strategies: 'generateSW',
-			scope: '/',
-			base: '/',
+			scope: base,
+			base: base,
 			includeAssets: ['favicon.svg', 'robots.txt'],
 			manifest: {
 				name: 'High Society Card Game',
@@ -20,23 +24,23 @@ export default defineConfig({
 				background_color: '#11191f',
 				display: 'standalone',
 				orientation: 'portrait',
-				start_url: '/',
-				scope: '/',
+				start_url: base,
+				scope: base,
 				icons: [
 					{
-						src: '/icon-192.png',
+						src: `${base}icon-192.png`,
 						sizes: '192x192',
 						type: 'image/png',
 						purpose: 'any'
 					},
 					{
-						src: '/icon-512.png',
+						src: `${base}icon-512.png`,
 						sizes: '512x512',
 						type: 'image/png',
 						purpose: 'any'
 					},
 					{
-						src: '/icon-512.png',
+						src: `${base}icon-512.png`,
 						sizes: '512x512',
 						type: 'image/png',
 						purpose: 'maskable'
