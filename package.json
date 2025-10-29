@@ -24,6 +24,8 @@
 		"workbox-window": "^7.3.0"
 	},
 	"dependencies": {
-		"@picocss/pico": "^2.1.1"
+		"@picocss/pico": "^2.1.1",
+		"socket.io": "^4.8.1",
+		"socket.io-client": "^4.8.1"
 	}
 }

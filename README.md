@@ -8,6 +8,8 @@ High Society is an auction-based card game for 2-5 players where socialites bid 
 
 ## Features
 
+- **Multiplayer**: WebSocket-based multiplayer via Socket.IO relay server
+- **Progressive Web App (PWA)**: Installable on desktop and mobile devices
 - **Clean Architecture**: Domain-driven design with clear separation of concerns
 - **Full Game Implementation**: 
   - 16 status cards (10 luxury, 3 prestige, 3 disgrace)
@@ -53,6 +55,60 @@ npm run build
 # Preview the production build
 npm run preview
 ```
+
+## Multiplayer Setup
+
+### Running the Relay Server
+
+The game requires a WebSocket relay server for multiplayer functionality:
+
+```sh
+# Install Socket.IO (first time only)
+npm install socket.io
+
+# Start the relay server
+node relay-server.js
+```
+
+The server will start on port 3000 by default. You can customize it:
+
+```sh
+# Use a different port
+PORT=8080 node relay-server.js
+
+# Restrict CORS origins
+CORS_ORIGIN=https://yourdomain.com node relay-server.js
+```
+
+### Configuring the Client
+
+Create a `.env` file in the project root:
+
+```env
+VITE_SOCKET_SERVER_URL=http://localhost:3000
+```
+
+For production, update this to your deployed relay server URL.
+
+### Playing Multiplayer
+
+1. **Host creates a room**:
+   - Click "Create Room"
+   - Share the room code with other players
+
+2. **Players join the room**:
+   - Enter the room code
+   - Enter your name
+   - Click "Join Room"
+
+3. **Start the game**:
+   - Once all players have joined, the host clicks "Start Game"
+
+4. **Play**:
+   - Take turns bidding on cards
+   - Game state automatically synchronizes across all players
+
+See [MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md) for detailed architecture documentation.
 
 ## How to Play
 
@@ -113,6 +169,27 @@ The game follows clean architecture principles with clear separation between dom
 - **State Machine**: Game phase transitions
 - **Strategy Pattern**: Regular vs disgrace auctions
 - **Command Pattern**: Status effects system
+
+## Documentation
+
+- **[QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md)** - Quick start guide for multiplayer
+- **[MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md)** - Detailed architecture documentation
+- **[IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md)** - Complete implementation summary
+- Design documents in root directory for game rules and specifications
+
+## Testing
+
+### Test the Relay Server
+
+```powershell
+# Start relay server
+node relay-server.js
+
+# In another terminal, run test script
+node test-relay.js
+```
+
+The test script will simulate two clients connecting, creating/joining a room, and exchanging events.
 
 ## Credits
 
