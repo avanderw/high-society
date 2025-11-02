@@ -25,6 +25,9 @@
 	let inLobby = $state(true); // true = in lobby/setup, false = in game
 	let lobbyPlayers = $state<Array<{ playerId: string; playerName: string }>>([]);
 	let multiplayerService = getMultiplayerService();
+	
+	// Map multiplayer player IDs to game player indices
+	let playerIdToGameIndex = $state<Map<string, number>>(new Map());
 
 	let gameState = $state<GameState | null>(null);
 	let selectedMoneyCards = $state<string[]>([]);
@@ -38,6 +41,15 @@
 	const currentPlayerIndex = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayerIndex() : -1);
 	const currentPlayerObj = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayer() : undefined);
 	const allPlayers = $derived(updateCounter >= 0 ? gameState?.getPlayers() ?? [] : []);
+	
+	// Check if it's my turn based on multiplayer player ID mapping
+	const isMyTurn = $derived.by(() => {
+		if (!myPlayerId || currentPlayerIndex === undefined || currentPlayerIndex < 0) return false;
+		const myGameIndex = playerIdToGameIndex.get(myPlayerId);
+		const result = myGameIndex === currentPlayerIndex;
+		console.log(`Turn check: myPlayerId=${myPlayerId}, myGameIndex=${myGameIndex}, currentPlayerIndex=${currentPlayerIndex}, isMyTurn=${result}`);
+		return result;
+	});
 
 	function startGame(playerNames: string[]) {
 		try {
@@ -57,17 +69,33 @@
 			errorMessage = '';
 			updateCounter = 0;
 			
+			// Create mapping from multiplayer player IDs to game player indices
+			playerIdToGameIndex = new Map();
+			lobbyPlayers.forEach((lobbyPlayer, index) => {
+				playerIdToGameIndex.set(lobbyPlayer.playerId, index);
+				console.log(`Mapping ${lobbyPlayer.playerId} -> player index ${index} (${playerNames[index]})`);
+			});
+			
 			// If host, broadcast game start to all players
 			if (isHost) {
+				// Send player mapping so clients can determine their game index
+				const playerMapping = lobbyPlayers.map((lobbyPlayer, index) => ({
+					multiplayerId: lobbyPlayer.playerId,
+					gamePlayerIndex: index,
+					playerName: playerNames[index]
+				}));
+				
 				const eventData = {
 					players: playerNames.map((name, i) => ({ 
 						id: game.getPlayers()[i].id, 
 						name 
 					})),
-					initialState: serializeGameState(game)
+					initialState: serializeGameState(game),
+					playerMapping: playerMapping
 				};
 				console.log('=== BROADCASTING GAME_STARTED ===');
 				console.log('Event data:', eventData);
+				console.log('Player mapping:', playerMapping);
 				console.log('Room ID:', roomId);
 				multiplayerService.broadcastEvent(GameEventType.GAME_STARTED, eventData);
 				console.log('Broadcast complete');
@@ -161,6 +189,16 @@
 				const deserializedState = deserializeGameState(event.data.initialState, game);
 				gameState = deserializedState;
 				console.log('Game state set successfully');
+				
+				// Build player ID mapping from received data
+				if (event.data.playerMapping) {
+					playerIdToGameIndex = new Map();
+					event.data.playerMapping.forEach((mapping: any) => {
+						playerIdToGameIndex.set(mapping.multiplayerId, mapping.gamePlayerIndex);
+						console.log(`Mapping ${mapping.multiplayerId} -> player index ${mapping.gamePlayerIndex} (${mapping.playerName})`);
+					});
+				}
+				
 				updateCounter++;
 			} catch (error) {
 				console.error('Failed to deserialize game state:', error);
@@ -312,9 +350,10 @@
 		
 		if (!auction || !currentPlayer) return;
 		
-		// Only allow current player to bid
-		if (currentPlayer.id !== myPlayerId) {
+		// Only allow current player to bid - use isMyTurn derived value
+		if (!isMyTurn) {
 			errorMessage = 'Not your turn!';
+			console.log('Bid rejected: not your turn. isMyTurn =', isMyTurn);
 			return;
 		}
 
@@ -395,9 +434,10 @@
 		
 		if (!auction || !currentPlayer) return;
 		
-		// Only allow current player to pass
-		if (currentPlayer.id !== myPlayerId) {
+		// Only allow current player to pass - use isMyTurn derived value
+		if (!isMyTurn) {
 			errorMessage = 'Not your turn!';
+			console.log('Pass rejected: not your turn. isMyTurn =', isMyTurn);
 			return;
 		}
 
@@ -626,18 +666,18 @@
 					<AuctionPanel 
 						auction={currentAuction ?? null}
 						currentPlayer={currentPlayerObj}
-						currentPlayerIndex={currentPlayerIndex}
-						allPlayers={allPlayers}
-						onBid={placeBid}
-						onPass={pass}
-						selectedTotal={selectedMoneyCards.reduce((sum, id) => {
-							const card = currentPlayerObj?.getMoneyHand().find(c => c.id === id);
-							return sum + (card?.value || 0);
-						}, 0)}
-						updateKey={updateCounter}
-						isMultiplayer={true}
-						isMyTurn={currentPlayerObj.id === myPlayerId}
-					/>
+					currentPlayerIndex={currentPlayerIndex}
+					allPlayers={allPlayers}
+					onBid={placeBid}
+					onPass={pass}
+					selectedTotal={selectedMoneyCards.reduce((sum, id) => {
+						const card = currentPlayerObj?.getMoneyHand().find(c => c.id === id);
+						return sum + (card?.value || 0);
+					}, 0)}
+					updateKey={updateCounter}
+					isMultiplayer={true}
+					isMyTurn={isMyTurn}
+				/>
 				{/if}
 
 				<StatusDisplay players={allPlayers} updateKey={updateCounter} />
@@ -649,7 +689,7 @@
 					selectedCards={selectedMoneyCards}
 					onToggleCard={toggleMoneyCard}
 					updateKey={updateCounter}
-					isMyTurn={currentPlayerObj.id === myPlayerId}
+					isMyTurn={isMyTurn}
 				/>
 			{/if}
 
