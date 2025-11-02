@@ -6,13 +6,7 @@
 	
 	import GameSetup from '$lib/components/GameSetup.svelte';
 	import MultiplayerSetup from '$lib/components/MultiplayerSetup.svelte';
-	import GameBoard from '$lib/components/GameBoar		// Reset multiplayer state
-		isMultiplayer = false;
-		roomId = '';
-		myPlayerId = '';
-		myPlayerName = '';
-		isHost = false;
-		roomReady = false;te';
+	import GameBoard from '$lib/components/GameBoard.svelte';
 	import AuctionPanel from '$lib/components/AuctionPanel.svelte';
 	import PlayerHand from '$lib/components/PlayerHand.svelte';
 	import StatusDisplay from '$lib/components/StatusDisplay.svelte';
@@ -69,13 +63,18 @@
 			
 			// If multiplayer and host, broadcast game start
 			if (isMultiplayer && isHost) {
-				multiplayerService.broadcastEvent(GameEventType.GAME_STARTED, {
+				const eventData = {
 					players: playerNames.map((name, i) => ({ 
 						id: game.getPlayers()[i].id, 
 						name 
 					})),
 					initialState: serializeGameState(game)
-				});
+				};
+				console.log('=== BROADCASTING GAME_STARTED ===');
+				console.log('Event data:', eventData);
+				console.log('Room ID:', roomId);
+				multiplayerService.broadcastEvent(GameEventType.GAME_STARTED, eventData);
+				console.log('Broadcast complete');
 			}
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to start game';
@@ -115,26 +114,63 @@
 	}
 	
 	function setupMultiplayerListeners() {
+		console.log('=== SETTING UP MULTIPLAYER LISTENERS ===');
+		console.log('Setting up listener for:', GameEventType.GAME_STARTED);
+		console.log('Current isHost:', isHost);
+		console.log('Current myPlayerId:', myPlayerId);
+		console.log('Multiplayer service connected:', multiplayerService.isConnected());
+		
 		// Game started event (for non-hosts)
 		multiplayerService.on(GameEventType.GAME_STARTED, (event: GameEvent) => {
-			if (!isHost && event.data.initialState) {
-				console.log('=== RECEIVED GAME START ===');
-				try {
-					const game = new GameState('game-' + Date.now());
-					// Initialize with player names from event
-					const playerNames = event.data.players.map((p: any) => p.name);
-					game.initializeGame(playerNames);
-					
-					// Apply the serialized state from host
-					const deserializedState = deserializeGameState(event.data.initialState, game);
-					gameState = deserializedState;
-					updateCounter++;
-				} catch (error) {
-					console.error('Failed to deserialize game state:', error);
-					errorMessage = 'Failed to sync game state';
-				}
+			console.log('=== GAME_STARTED EVENT RECEIVED IN HANDLER ===');
+			console.log('Event:', event);
+			console.log('Is Host:', isHost);
+			console.log('Event Data:', event.data);
+			
+			if (isHost) {
+				console.log('Host received own GAME_STARTED broadcast, ignoring');
+				return;
+			}
+			
+			if (!event.data) {
+				console.error('GAME_STARTED event missing data');
+				errorMessage = 'Invalid game start event';
+				return;
+			}
+			
+			if (!event.data.initialState) {
+				console.error('GAME_STARTED event missing initialState');
+				errorMessage = 'Invalid game start event - missing state';
+				return;
+			}
+			
+			if (!event.data.players) {
+				console.error('GAME_STARTED event missing players');
+				errorMessage = 'Invalid game start event - missing players';
+				return;
+			}
+			
+			console.log('=== PROCESSING GAME START ===');
+			try {
+				const game = new GameState('game-' + Date.now());
+				// Initialize with player names from event
+				const playerNames = event.data.players.map((p: any) => p.name);
+				console.log('Initializing game with players:', playerNames);
+				game.initializeGame(playerNames);
+				
+				// Apply the serialized state from host
+				console.log('Deserializing game state...');
+				const deserializedState = deserializeGameState(event.data.initialState, game);
+				gameState = deserializedState;
+				console.log('Game state set successfully');
+				updateCounter++;
+			} catch (error) {
+				console.error('Failed to deserialize game state:', error);
+				errorMessage = 'Failed to sync game state: ' + (error instanceof Error ? error.message : 'Unknown error');
 			}
 		});
+		
+		console.log('GAME_STARTED listener registered');
 		
 		// Bid placed event
 		multiplayerService.on(GameEventType.BID_PLACED, (event: GameEvent) => {
@@ -542,15 +578,6 @@
 			<p>The host will start the game when all players are ready...</p>
 			<progress></progress>
 		</article>
-	{:else if gameMode === 'multiplayer' && gameState && !isHost}
-		<!-- Waiting for host to start game -->
-		<article>
-			<header>
-				<h2>Waiting for Host</h2>
-			</header>
-			<p>The host will start the game when all players are ready...</p>
-			<progress></progress>
-		</article>
 	{:else if gameState && (currentPhase === GamePhase.SCORING || currentPhase === GamePhase.FINISHED)}
 		<ScoreBoard 
 			players={allPlayers} 
@@ -563,6 +590,11 @@
 				<div class="multiplayer-info">
 					<span class="badge">🌐 Multiplayer</span>
 					<span class="room-code">Room: {roomId}</span>
+					{#if multiplayerService.isConnected()}
+						<span class="connection-status connected">🟢 Connected</span>
+					{:else}
+						<span class="connection-status disconnected">🔴 Disconnected</span>
+					{/if}
 					{#if currentPlayerObj && currentPlayerObj.id === myPlayerId}
 						<span class="your-turn">🎯 Your Turn!</span>
 					{/if}
@@ -718,6 +750,19 @@
 		font-family: var(--pico-font-family-monospace);
 		font-weight: bold;
 		color: var(--pico-muted-color);
+	}
+
+	.connection-status {
+		font-size: 0.85rem;
+		font-weight: bold;
+	}
+
+	.connection-status.connected {
+		color: var(--pico-ins-color);
+	}
+
+	.connection-status.disconnected {
+		color: var(--pico-del-color);
 	}
 
 	.your-turn {

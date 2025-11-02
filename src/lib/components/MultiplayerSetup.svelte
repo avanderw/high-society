@@ -7,7 +7,7 @@
 	
 	let { onRoomReady }: Props = $props();
 	
-	let mode = $state<'menu' | 'create' | 'join'>('menu');
+	let mode = $state<'menu' | 'create' | 'join' | 'connecting'>('menu');
 	let playerName = $state('');
 	let roomCode = $state('');
 	let isConnecting = $state(false);
@@ -16,8 +16,33 @@
 	let currentRoomId = $state('');
 	let currentPlayerId = $state('');
 	let isHost = $state(false);
+	let connectionStatus = $state<'checking' | 'connected' | 'failed' | 'unknown'>('unknown');
 
 	const multiplayerService = getMultiplayerService();
+
+	async function checkConnection() {
+		connectionStatus = 'checking';
+		errorMessage = '';
+		
+		try {
+			const isConnected = await multiplayerService.testConnection();
+			connectionStatus = isConnected ? 'connected' : 'failed';
+			
+			if (!isConnected) {
+				errorMessage = 'Cannot connect to multiplayer server. Please check that the server is running.';
+			}
+		} catch (error) {
+			connectionStatus = 'failed';
+			errorMessage = error instanceof Error ? error.message : 'Failed to connect to multiplayer server';
+		}
+	}
+
+	// Check connection when component loads
+	$effect(() => {
+		if (mode === 'menu' && connectionStatus === 'unknown') {
+			checkConnection();
+		}
+	});
 
 	async function createRoom() {
 		if (!playerName.trim()) {
@@ -25,11 +50,19 @@
 			return;
 		}
 
+		if (connectionStatus !== 'connected') {
+			errorMessage = 'Not connected to multiplayer server';
+			return;
+		}
+
 		isConnecting = true;
 		errorMessage = '';
 
 		try {
-			await multiplayerService.connect();
+			// Connection should already be established from checkConnection
+			if (!multiplayerService.isConnected()) {
+				await multiplayerService.connect();
+			}
 			
 			// Listen for player events BEFORE creating the room
 			multiplayerService.on('room:joined', handlePlayerJoined);
@@ -61,11 +94,19 @@
 			return;
 		}
 
+		if (connectionStatus !== 'connected') {
+			errorMessage = 'Not connected to multiplayer server';
+			return;
+		}
+
 		isConnecting = true;
 		errorMessage = '';
 
 		try {
-			await multiplayerService.connect();
+			// Connection should already be established from checkConnection
+			if (!multiplayerService.isConnected()) {
+				await multiplayerService.connect();
+			}
 			
 			// Listen for player events BEFORE joining the room
 			multiplayerService.on('room:joined', handlePlayerJoined);
@@ -80,6 +121,9 @@
 			connectedPlayers = result.players || [];
 			
 			mode = 'join';
+			
+			// Notify parent that we're ready (this will setup game event listeners)
+			onRoomReady(currentRoomId, currentPlayerId, playerName.trim(), false, connectedPlayers);
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to join room';
 			isConnecting = false;
@@ -90,12 +134,18 @@
 	}
 
 	function handlePlayerJoined(event: any) {
-		console.log('[MultiplayerSetup] Player joined event received:', event);
+		console.log('[MultiplayerSetup] ====== PLAYER JOINED EVENT ======');
+		console.log('[MultiplayerSetup] Full event:', JSON.stringify(event, null, 2));
 		console.log('[MultiplayerSetup] My current player ID:', currentPlayerId);
+		console.log('[MultiplayerSetup] Event type:', event.type);
+		console.log('[MultiplayerSetup] Event data:', event.data);
 		console.log('[MultiplayerSetup] Event player ID:', event.data?.playerId);
+		
 		if (event.data && event.data.players) {
-			console.log('[MultiplayerSetup] Updating player list:', event.data.players);
+			console.log('[MultiplayerSetup] Updating player list from:', connectedPlayers);
+			console.log('[MultiplayerSetup] Updating player list to:', event.data.players);
 			connectedPlayers = event.data.players;
+			console.log('[MultiplayerSetup] Player list updated!');
 		} else {
 			console.warn('[MultiplayerSetup] Event missing data.players:', event);
 		}
@@ -152,24 +202,46 @@
 
 	{#if mode === 'menu'}
 		<div class="menu-container">
-			<p>Choose how to play:</p>
-			
-			<div class="button-group">
-				<button 
-					onclick={() => mode = 'create'} 
-					disabled={isConnecting}
-				>
-					Create Room
-				</button>
+			{#if connectionStatus === 'checking'}
+				<div class="connection-status checking">
+					<div class="spinner"></div>
+					<p>Checking multiplayer server connection...</p>
+				</div>
+			{:else if connectionStatus === 'failed'}
+				<div class="connection-status failed">
+					<p>❌ Multiplayer server is offline</p>
+					<p class="help-text">
+						To play online, you need to start the relay server:
+						<br><code>node relay-server.js</code>
+					</p>
+					<button onclick={checkConnection} class="secondary">
+						🔄 Retry Connection
+					</button>
+				</div>
+			{:else if connectionStatus === 'connected'}
+				<div class="connection-status connected">
+					<p>✅ Connected to multiplayer server</p>
+				</div>
 				
-				<button 
-					onclick={() => mode = 'join'}
-					class="secondary"
-					disabled={isConnecting}
-				>
-					Join Room
-				</button>
-			</div>
+				<p>Choose how to play:</p>
+				
+				<div class="button-group">
+					<button 
+						onclick={() => mode = 'create'} 
+						disabled={isConnecting}
+					>
+						Create Room
+					</button>
+					
+					<button 
+						onclick={() => mode = 'join'}
+						class="secondary"
+						disabled={isConnecting}
+					>
+						Join Room
+					</button>
+				</div>
+			{/if}
 		</div>
 	{:else if mode === 'create' && !currentRoomId}
 		<div>
@@ -324,6 +396,55 @@
 <style>
 	.menu-container {
 		text-align: center;
+	}
+
+	.connection-status {
+		padding: 1rem;
+		margin-bottom: 1.5rem;
+		border-radius: var(--pico-border-radius);
+		text-align: center;
+	}
+
+	.connection-status.checking {
+		background-color: var(--pico-card-background-color);
+		border: 1px solid var(--pico-muted-border-color);
+	}
+
+	.connection-status.connected {
+		background-color: var(--pico-ins-color);
+		color: var(--pico-contrast);
+	}
+
+	.connection-status.failed {
+		background-color: var(--pico-del-color);
+		color: var(--pico-contrast);
+	}
+
+	.connection-status .help-text {
+		font-size: 0.9rem;
+		margin-top: 0.5rem;
+	}
+
+	.connection-status code {
+		background-color: rgba(0, 0, 0, 0.2);
+		padding: 0.25rem 0.5rem;
+		border-radius: var(--pico-border-radius);
+		font-family: var(--pico-font-family-monospace);
+	}
+
+	.spinner {
+		width: 20px;
+		height: 20px;
+		border: 2px solid var(--pico-muted-color);
+		border-top: 2px solid var(--pico-primary);
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+		margin: 0 auto 0.5rem;
+	}
+
+	@keyframes spin {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
 	}
 
 	.button-group {
