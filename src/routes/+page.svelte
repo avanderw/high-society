@@ -4,7 +4,6 @@
 	import { AuctionResult } from '$lib/domain/auction';
 	import type { MoneyCard } from '$lib/domain/cards';
 	
-	import GameSetup from '$lib/components/GameSetup.svelte';
 	import MultiplayerSetup from '$lib/components/MultiplayerSetup.svelte';
 	import GameBoard from '$lib/components/GameBoard.svelte';
 	import AuctionPanel from '$lib/components/AuctionPanel.svelte';
@@ -17,17 +16,13 @@
 	import { getMultiplayerService } from '$lib/multiplayer/service';
 	import { GameEventType, type GameEvent } from '$lib/multiplayer/events';
 	import { serializeGameState, deserializeGameState } from '$lib/multiplayer/serialization';
-
-	// Game mode
-	let gameMode = $state<'menu' | 'local' | 'multiplayer'>('menu');
 	
-	// Multiplayer state
-	let isMultiplayer = $state(false);
+	// Multiplayer state (always multiplayer now)
 	let roomId = $state('');
 	let myPlayerId = $state('');
 	let myPlayerName = $state('');
 	let isHost = $state(false);
-	let roomReady = $state(false);
+	let inLobby = $state(true); // true = in lobby/setup, false = in game
 	let lobbyPlayers = $state<Array<{ playerId: string; playerName: string }>>([]);
 	let multiplayerService = getMultiplayerService();
 
@@ -62,8 +57,8 @@
 			errorMessage = '';
 			updateCounter = 0;
 			
-			// If multiplayer and host, broadcast game start
-			if (isMultiplayer && isHost) {
+			// If host, broadcast game start to all players
+			if (isHost) {
 				const eventData = {
 					players: playerNames.map((name, i) => ({ 
 						id: game.getPlayers()[i].id, 
@@ -77,6 +72,9 @@
 				multiplayerService.broadcastEvent(GameEventType.GAME_STARTED, eventData);
 				console.log('Broadcast complete');
 			}
+			
+			// Exit lobby mode
+			inLobby = false;
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to start game';
 		}
@@ -93,10 +91,8 @@
 		myPlayerId = playerIdParam;
 		myPlayerName = playerNameParam;
 		isHost = isHostParam;
-		isMultiplayer = true;
-		roomReady = true;
 		lobbyPlayers = players;
-		gameMode = 'multiplayer';
+		inLobby = true;
 		
 		// Setup event listeners
 		setupMultiplayerListeners();
@@ -316,8 +312,8 @@
 		
 		if (!auction || !currentPlayer) return;
 		
-		// In multiplayer, only allow current player to bid
-		if (isMultiplayer && currentPlayer.id !== myPlayerId) {
+		// Only allow current player to bid
+		if (currentPlayer.id !== myPlayerId) {
 			errorMessage = 'Not your turn!';
 			return;
 		}
@@ -352,15 +348,13 @@
 			selectedMoneyCards = [];
 			errorMessage = '';
 			
-			// Broadcast bid to other players in multiplayer
-			if (isMultiplayer) {
-				multiplayerService.broadcastEvent(GameEventType.BID_PLACED, {
-					playerId: currentPlayer.id,
-					playerName: currentPlayer.name,
-					moneyCardIds: moneyCards.map(c => c.id),
-					totalBid: currentPlayer.getCurrentBidAmount()
-				});
-			}
+			// Broadcast bid to other players
+			multiplayerService.broadcastEvent(GameEventType.BID_PLACED, {
+				playerId: currentPlayer.id,
+				playerName: currentPlayer.name,
+				moneyCardIds: moneyCards.map(c => c.id),
+				totalBid: currentPlayer.getCurrentBidAmount()
+			});
 
 			if (result === AuctionResult.COMPLETE) {
 				completeAuction();
@@ -401,8 +395,8 @@
 		
 		if (!auction || !currentPlayer) return;
 		
-		// In multiplayer, only allow current player to pass
-		if (isMultiplayer && currentPlayer.id !== myPlayerId) {
+		// Only allow current player to pass
+		if (currentPlayer.id !== myPlayerId) {
 			errorMessage = 'Not your turn!';
 			return;
 		}
@@ -412,13 +406,11 @@
 			selectedMoneyCards = [];
 			errorMessage = '';
 			
-			// Broadcast pass to other players in multiplayer
-			if (isMultiplayer) {
-				multiplayerService.broadcastEvent(GameEventType.PASS_AUCTION, {
-					playerId: currentPlayer.id,
-					playerName: currentPlayer.name
-				});
-			}
+			// Broadcast pass to other players
+			multiplayerService.broadcastEvent(GameEventType.PASS_AUCTION, {
+				playerId: currentPlayer.id,
+				playerName: currentPlayer.name
+			});
 
 			if (result === AuctionResult.COMPLETE) {
 				completeAuction();
@@ -465,22 +457,20 @@
 
 		const playerWithPending = gameState.getPlayers().find(p => p.getPendingLuxuryDiscard());
 		if (playerWithPending) {
-			// In multiplayer, only allow the player who needs to discard
-			if (isMultiplayer && playerWithPending.id !== myPlayerId) {
+			// Only allow the player who needs to discard
+			if (playerWithPending.id !== myPlayerId) {
 				errorMessage = 'Not your turn to discard!';
 				return;
 			}
 			
 			gameState.handleLuxuryDiscard(playerWithPending.id, cardId);
 			
-			// Broadcast luxury discard in multiplayer
-			if (isMultiplayer) {
-				multiplayerService.broadcastEvent(GameEventType.LUXURY_DISCARDED, {
-					playerId: playerWithPending.id,
-					playerName: playerWithPending.name,
-					cardId
-				});
-			}
+			// Broadcast luxury discard
+			multiplayerService.broadcastEvent(GameEventType.LUXURY_DISCARDED, {
+				playerId: playerWithPending.id,
+				playerName: playerWithPending.name,
+				cardId
+			});
 		}
 
 		showLuxuryDiscard = false;
@@ -495,31 +485,22 @@
 	}
 
 	function newGame() {
-		// Clean up multiplayer connection if active
-		if (isMultiplayer) {
-			multiplayerService.leaveRoom();
-			multiplayerService.disconnect();
-			
-			// Reset multiplayer state
-			isMultiplayer = false;
-			roomId = '';
-			myPlayerId = '';
-			myPlayerName = '';
-			isHost = false;
-		}
+		// Clean up multiplayer connection
+		multiplayerService.leaveRoom();
+		multiplayerService.disconnect();
 		
-		// Reset game state
+		// Reset all state
 		gameState = null;
 		selectedMoneyCards = [];
 		errorMessage = '';
 		showLuxuryDiscard = false;
 		updateCounter = 0;
-		gameMode = 'menu';
-	}
-	
-	function backToMenu() {
-		gameMode = 'menu';
-		errorMessage = '';
+		roomId = '';
+		myPlayerId = '';
+		myPlayerName = '';
+		isHost = false;
+		inLobby = true;
+		lobbyPlayers = [];
 	}
 
 	$effect(() => {
@@ -542,54 +523,14 @@
 <main class="container">
 	<header>
 		<h1>High Society</h1>
-		<p>A game of luxury, prestige, and careful money management</p>
+		<p>Online Multiplayer Card Game</p>
 	</header>
 
-	{#if gameMode === 'menu'}
-		<!-- Main menu -->
-		<article>
-			<header>
-				<h2>Select Game Mode</h2>
-			</header>
-			
-			<div class="mode-selection">
-				<button 
-					onclick={() => gameMode = 'local'}
-					class="mode-button"
-				>
-					<span class="icon">🏠</span>
-					<h3>Local Game</h3>
-					<p>Pass and play on one device</p>
-				</button>
-				
-				<button 
-					onclick={() => gameMode = 'multiplayer'}
-					class="mode-button secondary"
-				>
-					<span class="icon">🌐</span>
-					<h3>Online Multiplayer</h3>
-					<p>Play with friends over the internet</p>
-				</button>
-			</div>
-		</article>
-	{:else if gameMode === 'local' && !gameState}
-		<div class="with-back-button">
-			<button onclick={backToMenu} class="contrast">← Back to Menu</button>
-			<GameSetup onStart={startGame} />
-		</div>
-	{:else if gameMode === 'multiplayer' && !gameState && !roomReady}
-		<div class="with-back-button">
-			<button onclick={backToMenu} class="contrast">← Back to Menu</button>
-			<MultiplayerSetup onRoomReady={handleMultiplayerRoomReady} />
-		</div>
-	{:else if gameMode === 'multiplayer' && !gameState && roomReady && isHost}
-		<!-- Host ready to start game with connected players -->
-		<div class="with-back-button">
-			<button onclick={backToMenu} class="contrast">← Back to Menu</button>
-			<GameSetup onStart={startGame} />
-		</div>
-	{:else if gameMode === 'multiplayer' && !gameState && roomReady && !isHost}
-		<!-- Non-host waiting for game to start -->
+	{#if !gameState && !roomId}
+		<!-- Multiplayer Setup - Creating or joining room -->
+		<MultiplayerSetup onRoomReady={handleMultiplayerRoomReady} />
+	{:else if !gameState && roomId}
+		<!-- Multiplayer Lobby - Waiting for game to start -->
 		<article class="multiplayer-lobby">
 			<header>
 				<h2>Multiplayer Lobby</h2>
@@ -627,12 +568,28 @@
 				</ul>
 			</div>
 
-			<div class="waiting-message">
-				<p>⏳ Waiting for the host to start the game...</p>
-				<progress></progress>
-			</div>
+			{#if isHost}
+				<div class="host-controls">
+					<p>You are the host. Start the game when everyone is ready.</p>
+					<button 
+						onclick={() => startGame(lobbyPlayers.map(p => p.playerName))}
+						disabled={lobbyPlayers.length < 2 || lobbyPlayers.length > 5}
+						class="primary"
+					>
+						Start Game ({lobbyPlayers.length} players)
+					</button>
+					{#if lobbyPlayers.length < 2}
+						<small class="help-text">Need at least 2 players to start</small>
+					{/if}
+				</div>
+			{:else}
+				<div class="waiting-message">
+					<p>⏳ Waiting for the host to start the game...</p>
+					<progress></progress>
+				</div>
+			{/if}
 
-			<button onclick={backToMenu} class="secondary">
+			<button onclick={newGame} class="secondary">
 				Leave Lobby
 			</button>
 		</article>
@@ -644,20 +601,17 @@
 		/>
 	{:else if gameState}
 		<div class="game-container">
-			{#if isMultiplayer}
-				<div class="multiplayer-info">
-					<span class="badge">🌐 Multiplayer</span>
-					<span class="room-code">Room: {roomId}</span>
-					{#if multiplayerService.isConnected()}
-						<span class="connection-status connected">🟢 Connected</span>
-					{:else}
-						<span class="connection-status disconnected">🔴 Disconnected</span>
-					{/if}
-					{#if currentPlayerObj && currentPlayerObj.id === myPlayerId}
-						<span class="your-turn">🎯 Your Turn!</span>
-					{/if}
-				</div>
-			{/if}
+			<div class="multiplayer-info">
+				<span class="badge">🌐 Room: {roomId}</span>
+				{#if multiplayerService.isConnected()}
+					<span class="connection-status connected">🟢 Connected</span>
+				{:else}
+					<span class="connection-status disconnected">🔴 Disconnected</span>
+				{/if}
+				{#if currentPlayerObj && currentPlayerObj.id === myPlayerId}
+					<span class="your-turn">🎯 Your Turn!</span>
+				{/if}
+			</div>
 			
 			{#if errorMessage}
 				<article style="background-color: var(--pico-del-color); margin-bottom: 1rem;">
@@ -681,8 +635,8 @@
 							return sum + (card?.value || 0);
 						}, 0)}
 						updateKey={updateCounter}
-						isMultiplayer={isMultiplayer}
-						isMyTurn={!isMultiplayer || currentPlayerObj.id === myPlayerId}
+						isMultiplayer={true}
+						isMyTurn={currentPlayerObj.id === myPlayerId}
 					/>
 				{/if}
 
@@ -695,7 +649,7 @@
 					selectedCards={selectedMoneyCards}
 					onToggleCard={toggleMoneyCard}
 					updateKey={updateCounter}
-					isMyTurn={!isMultiplayer || currentPlayerObj.id === myPlayerId}
+					isMyTurn={currentPlayerObj.id === myPlayerId}
 				/>
 			{/if}
 
@@ -738,54 +692,6 @@
 		gap: 1.5rem;
 	}
 
-	.mode-selection {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-		gap: 1.5rem;
-		margin-top: 1.5rem;
-	}
-
-	.mode-button {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: 2rem;
-		text-align: center;
-		border: 2px solid var(--pico-primary);
-		transition: all 0.3s ease;
-	}
-
-	.mode-button:hover {
-		transform: translateY(-4px);
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-	}
-
-	.mode-button .icon {
-		font-size: 3rem;
-		margin-bottom: 1rem;
-	}
-
-	.mode-button h3 {
-		margin-bottom: 0.5rem;
-		color: var(--pico-primary);
-	}
-
-	.mode-button p {
-		margin: 0;
-		color: var(--pico-muted-color);
-		font-size: 0.9rem;
-	}
-
-	.with-back-button {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-
-	.with-back-button > button {
-		align-self: flex-start;
-	}
-
 	.multiplayer-info {
 		display: flex;
 		align-items: center;
@@ -807,10 +713,15 @@
 		font-weight: bold;
 	}
 
-	.room-code {
-		font-family: var(--pico-font-family-monospace);
-		font-weight: bold;
-		color: var(--pico-muted-color);
+	.multiplayer-info {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.75rem 1rem;
+		background-color: var(--pico-card-background-color);
+		border-radius: var(--pico-border-radius);
+		margin-bottom: 1rem;
+		flex-wrap: wrap;
 	}
 
 	.connection-status {
@@ -968,6 +879,32 @@
 	.waiting-message p {
 		margin-bottom: 1rem;
 		font-size: 1.1rem;
+		color: var(--pico-muted-color);
+	}
+
+	.host-controls {
+		text-align: center;
+		margin: 2rem 0;
+		padding: 1.5rem;
+		background-color: var(--pico-card-background-color);
+		border-radius: var(--pico-border-radius);
+		border: 2px solid var(--pico-primary);
+	}
+
+	.host-controls p {
+		margin-bottom: 1rem;
+		font-weight: 500;
+		color: var(--pico-primary);
+	}
+
+	.host-controls button {
+		margin: 0 auto;
+	}
+
+	.help-text {
+		display: block;
+		margin-top: 0.5rem;
+		font-size: 0.9rem;
 		color: var(--pico-muted-color);
 	}
 </style>
