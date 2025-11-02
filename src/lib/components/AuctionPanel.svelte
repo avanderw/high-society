@@ -11,9 +11,11 @@
 		onPass: () => void;
 		selectedTotal: number;
 		updateKey?: number;
+		isMultiplayer?: boolean;
+		isMyTurn?: boolean;
 	}
 
-	let { auction, currentPlayer, currentPlayerIndex, allPlayers, onBid, onPass, selectedTotal, updateKey = 0 }: Props = $props();
+	let { auction, currentPlayer, currentPlayerIndex, allPlayers, onBid, onPass, selectedTotal, updateKey = 0, isMultiplayer = false, isMyTurn = true }: Props = $props();
 
 	const isActive = $derived((playerId: string) => 
 		auction?.getActivePlayers().has(playerId) ?? false
@@ -61,25 +63,31 @@
 	</section>
 
 	<footer>
-		<div class="grid">
-			<button 
-				onclick={onBid} 
-				disabled={!canBid || selectedTotal === 0}
-				class="primary"
-			>
-				Place Bid ({selectedTotal.toLocaleString()})
-			</button>
-			<button 
-				onclick={onPass}
-				class="secondary"
-			>
-				Pass
-			</button>
-		</div>
-		{#if !canBid && selectedTotal > 0}
-			<small style="color: var(--pico-del-color);">
-				Your new total ({newTotalBid.toLocaleString()}) must be higher than {currentBid.toLocaleString()}
-			</small>
+		{#if isMultiplayer && !isMyTurn}
+			<div class="not-your-turn">
+				<p>⏳ Waiting for {currentPlayer.name} to take their turn...</p>
+			</div>
+		{:else}
+			<div class="grid">
+				<button 
+					onclick={onBid} 
+					disabled={!canBid || selectedTotal === 0}
+					class="primary"
+				>
+					Place Bid ({selectedTotal.toLocaleString()})
+				</button>
+				<button 
+					onclick={onPass}
+					class="secondary"
+				>
+					Pass
+				</button>
+			</div>
+			{#if !canBid && selectedTotal > 0}
+				<small style="color: var(--pico-del-color);">
+					Your new total ({newTotalBid.toLocaleString()}) must be higher than {currentBid.toLocaleString()}
+				</small>
+			{/if}
 		{/if}
 	</footer>
 </article>
@@ -102,5 +110,17 @@
 
 	footer {
 		margin-top: 1rem;
+	}
+
+	.not-your-turn {
+		text-align: center;
+		padding: 1rem;
+		background-color: var(--pico-card-background-color);
+		border-radius: var(--pico-border-radius);
+		color: var(--pico-muted-color);
+	}
+
+	.not-your-turn p {
+		margin: 0;
 	}
 </style>

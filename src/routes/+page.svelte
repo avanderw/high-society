@@ -28,6 +28,7 @@
 	let myPlayerName = $state('');
 	let isHost = $state(false);
 	let roomReady = $state(false);
+	let lobbyPlayers = $state<Array<{ playerId: string; playerName: string }>>([]);
 	let multiplayerService = getMultiplayerService();
 
 	let gameState = $state<GameState | null>(null);
@@ -94,6 +95,7 @@
 		isHost = isHostParam;
 		isMultiplayer = true;
 		roomReady = true;
+		lobbyPlayers = players;
 		gameMode = 'multiplayer';
 		
 		// Setup event listeners
@@ -171,6 +173,23 @@
 		});
 		
 		console.log('GAME_STARTED listener registered');
+		
+		// Room events for lobby updates
+		multiplayerService.on('room:joined', (event: GameEvent) => {
+			console.log('=== ROOM:JOINED EVENT ===', event.data);
+			if (event.data && event.data.players) {
+				lobbyPlayers = event.data.players;
+				console.log('Updated lobby players:', lobbyPlayers);
+			}
+		});
+		
+		multiplayerService.on('room:left', (event: GameEvent) => {
+			console.log('=== ROOM:LEFT EVENT ===', event.data);
+			if (event.data && event.data.playerId) {
+				lobbyPlayers = lobbyPlayers.filter(p => p.playerId !== event.data.playerId);
+				console.log('Updated lobby players:', lobbyPlayers);
+			}
+		});
 		
 		// Bid placed event
 		multiplayerService.on(GameEventType.BID_PLACED, (event: GameEvent) => {
@@ -571,12 +590,51 @@
 		</div>
 	{:else if gameMode === 'multiplayer' && !gameState && roomReady && !isHost}
 		<!-- Non-host waiting for game to start -->
-		<article>
+		<article class="multiplayer-lobby">
 			<header>
-				<h2>Waiting for Host</h2>
+				<h2>Multiplayer Lobby</h2>
 			</header>
-			<p>The host will start the game when all players are ready...</p>
-			<progress></progress>
+
+			<div class="lobby-info">
+				<div class="room-code-display">
+					<h3>Room Code</h3>
+					<code class="room-code-large">{roomId}</code>
+				</div>
+
+				<div class="connection-indicator">
+					{#if multiplayerService.isConnected()}
+						<span class="status-badge connected">🟢 Connected to Server</span>
+					{:else}
+						<span class="status-badge disconnected">🔴 Disconnected</span>
+					{/if}
+				</div>
+			</div>
+
+			<div class="player-list-lobby">
+				<h3>Connected Players ({lobbyPlayers.length}/5)</h3>
+				<ul>
+					{#each lobbyPlayers as player}
+						<li class="player-item">
+							<span class="player-name">{player.playerName}</span>
+							{#if player.playerId === myPlayerId}
+								<span class="badge-you">You</span>
+							{/if}
+							{#if player.playerId === lobbyPlayers[0]?.playerId}
+								<span class="badge-host">Host</span>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			</div>
+
+			<div class="waiting-message">
+				<p>⏳ Waiting for the host to start the game...</p>
+				<progress></progress>
+			</div>
+
+			<button onclick={backToMenu} class="secondary">
+				Leave Lobby
+			</button>
 		</article>
 	{:else if gameState && (currentPhase === GamePhase.SCORING || currentPhase === GamePhase.FINISHED)}
 		<ScoreBoard 
@@ -623,6 +681,8 @@
 							return sum + (card?.value || 0);
 						}, 0)}
 						updateKey={updateCounter}
+						isMultiplayer={isMultiplayer}
+						isMyTurn={!isMultiplayer || currentPlayerObj.id === myPlayerId}
 					/>
 				{/if}
 
@@ -635,6 +695,7 @@
 					selectedCards={selectedMoneyCards}
 					onToggleCard={toggleMoneyCard}
 					updateKey={updateCounter}
+					isMyTurn={!isMultiplayer || currentPlayerObj.id === myPlayerId}
 				/>
 			{/if}
 
@@ -783,5 +844,130 @@
 		50% {
 			opacity: 0.6;
 		}
+	}
+
+	/* Multiplayer Lobby Styles */
+	.multiplayer-lobby {
+		max-width: 600px;
+		margin: 0 auto;
+	}
+
+	.lobby-info {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		margin-bottom: 2rem;
+	}
+
+	.room-code-display {
+		text-align: center;
+		padding: 1rem;
+		background-color: var(--pico-card-background-color);
+		border-radius: var(--pico-border-radius);
+	}
+
+	.room-code-display h3 {
+		margin-bottom: 0.5rem;
+		font-size: 0.9rem;
+		color: var(--pico-muted-color);
+	}
+
+	.room-code-large {
+		display: block;
+		font-size: 1.5rem;
+		font-weight: bold;
+		font-family: var(--pico-font-family-monospace);
+		letter-spacing: 0.1em;
+		padding: 0.5rem;
+		background-color: var(--pico-code-background-color);
+		border-radius: var(--pico-border-radius);
+	}
+
+	.connection-indicator {
+		text-align: center;
+	}
+
+	.status-badge {
+		display: inline-block;
+		padding: 0.5rem 1rem;
+		border-radius: var(--pico-border-radius);
+		font-size: 0.9rem;
+		font-weight: bold;
+	}
+
+	.status-badge.connected {
+		background-color: var(--pico-ins-color);
+		color: var(--pico-contrast);
+	}
+
+	.status-badge.disconnected {
+		background-color: var(--pico-del-color);
+		color: var(--pico-contrast);
+	}
+
+	.player-list-lobby {
+		margin-bottom: 1.5rem;
+	}
+
+	.player-list-lobby h3 {
+		margin-bottom: 1rem;
+		color: var(--pico-primary);
+	}
+
+	.player-list-lobby ul {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+
+	.player-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.75rem 1rem;
+		margin-bottom: 0.5rem;
+		background-color: var(--pico-card-background-color);
+		border-radius: var(--pico-border-radius);
+		transition: transform 0.2s ease;
+	}
+
+	.player-item:hover {
+		transform: translateX(4px);
+	}
+
+	.player-name {
+		flex: 1;
+		font-weight: 500;
+	}
+
+	.badge-you {
+		display: inline-block;
+		padding: 0.25rem 0.5rem;
+		background-color: var(--pico-primary);
+		color: var(--pico-primary-inverse);
+		border-radius: var(--pico-border-radius);
+		font-size: 0.75rem;
+		font-weight: bold;
+	}
+
+	.badge-host {
+		display: inline-block;
+		padding: 0.25rem 0.5rem;
+		background-color: var(--pico-secondary);
+		color: var(--pico-secondary-inverse);
+		border-radius: var(--pico-border-radius);
+		font-size: 0.75rem;
+		font-weight: bold;
+	}
+
+	.waiting-message {
+		text-align: center;
+		margin: 2rem 0;
+	}
+
+	.waiting-message p {
+		margin-bottom: 1rem;
+		font-size: 1.1rem;
+		color: var(--pico-muted-color);
 	}
 </style>

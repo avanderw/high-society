@@ -6,9 +6,10 @@
 		selectedCards: string[];
 		onToggleCard: (cardId: string) => void;
 		updateKey?: number;
+		isMyTurn?: boolean;
 	}
 
-	let { player, selectedCards, onToggleCard, updateKey = 0 }: Props = $props();
+	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true }: Props = $props();
 
 	const moneyHand = $derived(updateKey >= 0 ? player.getMoneyHand() : []);
 	const playedMoney = $derived(updateKey >= 0 ? player.getPlayedMoney() : []);
@@ -38,6 +39,7 @@
 					class="money-card {selectedCards.includes(card.id) ? 'selected' : ''}"
 					onclick={() => onToggleCard(card.id)}
 					style="--card-color: {player.color};"
+					disabled={!isMyTurn}
 				>
 					<div class="card-content">
 						<div class="card-value">{card.getDisplayValue()}</div>
@@ -98,9 +100,14 @@
 		font-size: inherit;
 	}
 
-	.money-card:hover {
+	.money-card:not(:disabled):hover {
 		transform: translateY(-4px);
 		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+	}
+
+	.money-card:disabled {
+		cursor: not-allowed;
+		opacity: 0.5;
 	}
 
 	.money-card.selected {
