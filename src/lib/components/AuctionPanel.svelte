@@ -5,6 +5,7 @@
 	interface Props {
 		auction: Auction | null;
 		currentPlayer: Player;
+		localPlayer?: Player; // The player at this client (for showing their personal bid)
 		currentPlayerIndex: number;
 		allPlayers: Player[];
 		onBid: () => void;
@@ -15,14 +16,16 @@
 		isMyTurn?: boolean;
 	}
 
-	let { auction, currentPlayer, currentPlayerIndex, allPlayers, onBid, onPass, selectedTotal, updateKey = 0, isMultiplayer = false, isMyTurn = true }: Props = $props();
+	let { auction, currentPlayer, localPlayer, currentPlayerIndex, allPlayers, onBid, onPass, selectedTotal, updateKey = 0, isMultiplayer = false, isMyTurn = true }: Props = $props();
 
 	const isActive = $derived((playerId: string) => 
 		auction?.getActivePlayers().has(playerId) ?? false
 	);
 
 	const currentBid = $derived(updateKey >= 0 ? auction?.getCurrentHighestBid() ?? 0 : 0);
-	const playerCurrentBid = $derived(updateKey >= 0 ? currentPlayer.getCurrentBidAmount() : 0);
+	// Use localPlayer for bid calculations if available, otherwise fall back to currentPlayer
+	const playerForBid = $derived(localPlayer ?? currentPlayer);
+	const playerCurrentBid = $derived(updateKey >= 0 ? playerForBid.getCurrentBidAmount() : 0);
 	const newTotalBid = $derived(playerCurrentBid + selectedTotal);
 	const canBid = $derived(newTotalBid > currentBid);
 </script>
@@ -35,10 +38,10 @@
 	<section>
 		<p><strong>Current Player:</strong> {currentPlayer.name}</p>
 		<p><strong>Current Highest Bid:</strong> {currentBid.toLocaleString()} Francs</p>
-		{#if currentPlayer.getCurrentBidAmount() > 0}
-			<p><strong>Your Current Bid:</strong> {currentPlayer.getCurrentBidAmount().toLocaleString()} Francs</p>
+		{#if playerCurrentBid > 0}
+			<p><strong>Your Current Bid:</strong> {playerCurrentBid.toLocaleString()} Francs</p>
 			<p><strong>Adding:</strong> {selectedTotal.toLocaleString()} Francs</p>
-			<p><strong>New Total:</strong> {(currentPlayer.getCurrentBidAmount() + selectedTotal).toLocaleString()} Francs</p>
+			<p><strong>New Total:</strong> {newTotalBid.toLocaleString()} Francs</p>
 		{:else}
 			<p><strong>Your Selected Bid:</strong> {selectedTotal.toLocaleString()} Francs</p>
 		{/if}
