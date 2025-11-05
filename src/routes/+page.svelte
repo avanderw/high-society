@@ -1,4 +1,4 @@
-<script lang="ts">
+npm <script lang="ts">
 	import { GameState, GamePhase } from '$lib/domain/gameState';
 	import { GameScoringService } from '$lib/domain/scoring';
 	import { AuctionResult } from '$lib/domain/auction';
@@ -25,6 +25,7 @@
 	let inLobby = $state(true); // true = in lobby/setup, false = in game
 	let lobbyPlayers = $state<Array<{ playerId: string; playerName: string }>>([]);
 	let multiplayerService = getMultiplayerService();
+	let listenersRegistered = false; // Flag to prevent duplicate listener registration
 	
 	// Map multiplayer player IDs to game player indices
 	let playerIdToGameIndex = $state<Map<string, number>>(new Map());
@@ -41,6 +42,14 @@
 	const currentPlayerIndex = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayerIndex() : -1);
 	const currentPlayerObj = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayer() : undefined);
 	const allPlayers = $derived(updateCounter >= 0 ? gameState?.getPlayers() ?? [] : []);
+	
+	// Get the local player based on multiplayer ID mapping
+	const localPlayer = $derived.by(() => {
+		if (!myPlayerId || !gameState) return undefined;
+		const myGameIndex = playerIdToGameIndex.get(myPlayerId);
+		if (myGameIndex === undefined) return undefined;
+		return gameState.getPlayers()[myGameIndex];
+	});
 	
 	// Check if it's my turn based on multiplayer player ID mapping
 	const isMyTurn = $derived.by(() => {
@@ -140,11 +149,19 @@
 	}
 	
 	function setupMultiplayerListeners() {
+		// Prevent duplicate listener registration
+		if (listenersRegistered) {
+			console.log('Listeners already registered, skipping setup');
+			return;
+		}
+		
 		console.log('=== SETTING UP MULTIPLAYER LISTENERS ===');
 		console.log('Setting up listener for:', GameEventType.GAME_STARTED);
 		console.log('Current isHost:', isHost);
 		console.log('Current myPlayerId:', myPlayerId);
 		console.log('Multiplayer service connected:', multiplayerService.isConnected());
+		
+		listenersRegistered = true;
 		
 		// Game started event (for non-hosts)
 		multiplayerService.on(GameEventType.GAME_STARTED, (event: GameEvent) => {
@@ -230,9 +247,11 @@
 			console.log('=== RECEIVED BID ===', event.data);
 			if (!gameState) return;
 			
-			// Skip if it's our own bid
-			const currentPlayer = gameState.getCurrentPlayer();
-			if (currentPlayer.id === myPlayerId) return;
+			// Skip if it's our own bid - check multiplayer player ID
+			if (event.data.multiplayerPlayerId === myPlayerId) {
+				console.log('Skipping own bid event');
+				return;
+			}
 			
 			try {
 				const player = gameState.getPlayers().find(p => p.id === event.data.playerId);
@@ -270,9 +289,11 @@
 			console.log('=== RECEIVED PASS ===', event.data);
 			if (!gameState) return;
 			
-			// Skip if it's our own pass
-			const currentPlayer = gameState.getCurrentPlayer();
-			if (currentPlayer.id === myPlayerId) return;
+			// Skip if it's our own pass - check multiplayer player ID
+			if (event.data.multiplayerPlayerId === myPlayerId) {
+				console.log('Skipping own pass event');
+				return;
+			}
 			
 			try {
 				const player = gameState.getPlayers().find(p => p.id === event.data.playerId);
@@ -390,6 +411,7 @@
 			// Broadcast bid to other players
 			multiplayerService.broadcastEvent(GameEventType.BID_PLACED, {
 				playerId: currentPlayer.id,
+				multiplayerPlayerId: myPlayerId, // Include multiplayer ID to identify sender
 				playerName: currentPlayer.name,
 				moneyCardIds: moneyCards.map(c => c.id),
 				totalBid: currentPlayer.getCurrentBidAmount()
@@ -449,6 +471,7 @@
 			// Broadcast pass to other players
 			multiplayerService.broadcastEvent(GameEventType.PASS_AUCTION, {
 				playerId: currentPlayer.id,
+				multiplayerPlayerId: myPlayerId, // Include multiplayer ID to identify sender
 				playerName: currentPlayer.name
 			});
 
@@ -666,12 +689,13 @@
 					<AuctionPanel 
 						auction={currentAuction ?? null}
 						currentPlayer={currentPlayerObj}
+						localPlayer={localPlayer}
 					currentPlayerIndex={currentPlayerIndex}
 					allPlayers={allPlayers}
 					onBid={placeBid}
 					onPass={pass}
 					selectedTotal={selectedMoneyCards.reduce((sum, id) => {
-						const card = currentPlayerObj?.getMoneyHand().find(c => c.id === id);
+						const card = localPlayer?.getMoneyHand().find(c => c.id === id);
 						return sum + (card?.value || 0);
 					}, 0)}
 					updateKey={updateCounter}
@@ -683,9 +707,9 @@
 				<StatusDisplay players={allPlayers} updateKey={updateCounter} />
 			</div>
 
-			{#if currentPlayerObj}
+			{#if localPlayer}
 				<PlayerHand 
-					player={currentPlayerObj}
+					player={localPlayer}
 					selectedCards={selectedMoneyCards}
 					onToggleCard={toggleMoneyCard}
 					updateKey={updateCounter}
