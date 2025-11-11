@@ -11,15 +11,15 @@
 
 	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true }: Props = $props();
 
-	// Sort money cards by value (descending)
+	// Sort money cards by value (ascending)
 	const moneyHand = $derived(
 		updateKey >= 0 
-			? [...player.getMoneyHand()].sort((a, b) => b.value - a.value)
+			? [...player.getMoneyHand()].sort((a, b) => a.value - b.value)
 			: []
 	);
 	const playedMoney = $derived(
 		updateKey >= 0 
-			? [...player.getPlayedMoney()].sort((a, b) => b.value - a.value)
+			? [...player.getPlayedMoney()].sort((a, b) => a.value - b.value)
 			: []
 	);
 	const totalSelected = $derived(
