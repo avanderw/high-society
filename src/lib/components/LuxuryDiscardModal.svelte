@@ -52,25 +52,42 @@
 		bottom: 0;
 		z-index: 1000;
 		background: rgba(0, 0, 0, 0.7);
+		padding: 1rem;
 	}
 
 	article {
-		max-width: 600px;
+		max-width: min(600px, 95vw);
 		margin: 0;
+		max-height: 90vh;
+		overflow-y: auto;
+	}
+
+	header h3 {
+		font-size: clamp(1.125rem, 3vw, 1.25rem);
+	}
+
+	section p {
+		font-size: clamp(0.875rem, 2vw, 1rem);
 	}
 
 	.luxury-cards {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
+		gap: 0.75rem;
 		margin: 1rem 0;
 		justify-content: center;
 	}
 
+	@media (min-width: 768px) {
+		.luxury-cards {
+			gap: 1rem;
+		}
+	}
+
 	.luxury-card {
-		width: 150px;
-		height: 200px;
-		padding: 1.5rem;
+		width: min(150px, 40vw);
+		height: min(200px, 50vw);
+		padding: 1rem;
 		border: 3px solid var(--pico-primary);
 		border-radius: var(--pico-border-radius);
 		background: var(--pico-card-background-color);
@@ -83,20 +100,38 @@
 		font-family: inherit;
 	}
 
+	@media (min-width: 768px) {
+		.luxury-card {
+			width: 150px;
+			height: 200px;
+			padding: 1.5rem;
+		}
+	}
+
 	.luxury-card:hover {
 		transform: scale(1.05);
 		box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
 		border-color: var(--pico-del-color);
 	}
 
+	.luxury-card:active {
+		transform: scale(1.02);
+	}
+
 	.luxury-card h4 {
-		margin: 0 0 1rem 0;
-		font-size: 1.125rem;
+		margin: 0 0 0.75rem 0;
+		font-size: clamp(0.875rem, 2.5vw, 1.125rem);
 		text-align: center;
 	}
 
+	@media (min-width: 768px) {
+		.luxury-card h4 {
+			margin: 0 0 1rem 0;
+		}
+	}
+
 	.card-value {
-		font-size: 2.5rem;
+		font-size: clamp(1.75rem, 6vw, 2.5rem);
 		font-weight: bold;
 		color: var(--pico-primary);
 	}

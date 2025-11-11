@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Player } from '$lib/domain/player';
+	import type { Auction } from '$lib/domain/auction';
 
 	interface Props {
 		player: Player;
@@ -7,9 +8,27 @@
 		onToggleCard: (cardId: string) => void;
 		updateKey?: number;
 		isMyTurn?: boolean;
+		auction: Auction | null;
+		onBid: () => void;
+		onPass: () => void;
+		isMultiplayer?: boolean;
 	}
 
-	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true }: Props = $props();
+	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true, auction, onBid, onPass, isMultiplayer = false }: Props = $props();
+
+	// Track whether we're on mobile (for default details state)
+	let isMobile = $state(false);
+	
+	$effect(() => {
+		if (typeof window !== 'undefined') {
+			isMobile = window.innerWidth < 768;
+			const handleResize = () => {
+				isMobile = window.innerWidth < 768;
+			};
+			window.addEventListener('resize', handleResize);
+			return () => window.removeEventListener('resize', handleResize);
+		}
+	});
 
 	// Sort money cards by value (ascending)
 	const moneyHand = $derived(
@@ -28,6 +47,18 @@
 			return sum + (card?.value || 0);
 		}, 0)
 	);
+
+	// Bid calculations
+	const currentBid = $derived.by(() => {
+		const _ = updateKey;
+		return auction?.getCurrentHighestBid() ?? 0;
+	});
+	const playerCurrentBid = $derived.by(() => {
+		const _ = updateKey;
+		return player.getCurrentBidAmount();
+	});
+	const newTotalBid = $derived(playerCurrentBid + totalSelected);
+	const canBid = $derived(newTotalBid > currentBid);
 </script>
 
 <article>
@@ -59,7 +90,7 @@
 		</div>
 
 		{#if playedMoney.length > 0}
-			<details open>
+			<details open={!isMobile}>
 				<summary>Currently Bid</summary>
 				<div class="money-cards">
 					{#each playedMoney as card}
@@ -76,9 +107,58 @@
 	</section>
 
 	<footer>
-		<p>
-			<strong>Selected Total:</strong> {totalSelected.toLocaleString()} Francs
-		</p>
+		{#if isMultiplayer && !isMyTurn}
+			<div class="not-your-turn">
+				<p>⏳ Waiting for your turn...</p>
+			</div>
+		{:else}
+			<div class="bid-info">
+				<div class="bid-row">
+					<span class="bid-label">High Bid:</span>
+					<span class="bid-value">{currentBid.toLocaleString()}</span>
+				</div>
+				{#if playerCurrentBid > 0}
+					<div class="bid-row">
+						<span class="bid-label">Your Bid:</span>
+						<span class="bid-value">{playerCurrentBid.toLocaleString()}</span>
+					</div>
+					<div class="bid-row">
+						<span class="bid-label">Adding:</span>
+						<span class="bid-value">+{totalSelected.toLocaleString()}</span>
+					</div>
+					<div class="bid-row total">
+						<span class="bid-label">New Total:</span>
+						<span class="bid-value">{newTotalBid.toLocaleString()}</span>
+					</div>
+				{:else if totalSelected > 0}
+					<div class="bid-row">
+						<span class="bid-label">Selected:</span>
+						<span class="bid-value">{totalSelected.toLocaleString()}</span>
+					</div>
+				{/if}
+			</div>
+			
+			<div class="grid">
+				<button 
+					onclick={onBid} 
+					disabled={!canBid || totalSelected === 0}
+					class="primary"
+				>
+					Place Bid ({totalSelected.toLocaleString()})
+				</button>
+				<button 
+					onclick={onPass}
+					class="secondary"
+				>
+					Pass
+				</button>
+			</div>
+			{#if !canBid && totalSelected > 0}
+				<small style="color: var(--pico-del-color);">
+					Your new total ({newTotalBid.toLocaleString()}) must be higher than {currentBid.toLocaleString()}
+				</small>
+			{/if}
+		{/if}
 	</footer>
 </article>
 
@@ -88,12 +168,16 @@
 		flex-wrap: wrap;
 		gap: 0.5rem;
 		margin: 1rem 0;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	.money-card {
-		width: 80px;
-		height: 100px;
-		padding: 0.5rem;
+		width: min(80px, 15vw);
+		min-width: 60px;
+		height: min(100px, 20vw);
+		min-height: 75px;
+		padding: 0.25rem;
 		border: 2px solid var(--pico-muted-border-color);
 		border-radius: var(--pico-border-radius);
 		background: var(--pico-card-background-color);
@@ -102,6 +186,15 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		flex-shrink: 0;
+	}
+
+	@media (min-width: 768px) {
+		.money-card {
+			width: 80px;
+			height: 100px;
+			padding: 0.5rem;
+		}
 	}
 
 	button.money-card {
@@ -112,6 +205,10 @@
 	.money-card:not(:disabled):hover {
 		transform: translateY(-4px);
 		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+	}
+
+	.money-card:not(:disabled):active {
+		transform: translateY(-2px);
 	}
 
 	.money-card:disabled {
@@ -138,13 +235,88 @@
 	}
 
 	.card-value {
-		font-size: 1.5rem;
+		font-size: clamp(1.25rem, 3vw, 1.5rem);
 		font-weight: bold;
 		margin-bottom: 0.25rem;
 	}
 
 	small {
 		display: block;
-		font-size: 0.75rem;
+		font-size: clamp(0.65rem, 1.5vw, 0.75rem);
+	}
+
+	footer p {
+		font-size: clamp(0.875rem, 2vw, 1rem);
+	}
+
+	.bid-info {
+		background-color: var(--pico-card-background-color);
+		border-radius: var(--pico-border-radius);
+		padding: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.bid-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.25rem 0;
+		font-size: clamp(0.875rem, 2vw, 1rem);
+	}
+
+	.bid-row.total {
+		border-top: 2px solid var(--pico-primary);
+		margin-top: 0.5rem;
+		padding-top: 0.5rem;
+		font-weight: bold;
+	}
+
+	.bid-label {
+		color: var(--pico-muted-color);
+	}
+
+	.bid-value {
+		font-weight: bold;
+		font-size: clamp(1rem, 2.5vw, 1.1rem);
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 0.5rem;
+	}
+
+	@media (min-width: 480px) {
+		.grid {
+			grid-template-columns: 1fr 1fr;
+		}
+	}
+
+	button {
+		font-size: clamp(0.875rem, 2vw, 1rem);
+		padding: 0.5rem 0.75rem;
+	}
+
+	@media (min-width: 768px) {
+		button {
+			padding: 0.75rem 1rem;
+		}
+	}
+
+	footer small {
+		font-size: clamp(0.75rem, 1.8vw, 0.875rem);
+	}
+
+	.not-your-turn {
+		text-align: center;
+		padding: 1rem;
+		background-color: var(--pico-card-background-color);
+		border-radius: var(--pico-border-radius);
+		color: var(--pico-muted-color);
+	}
+
+	.not-your-turn p {
+		margin: 0;
+		font-size: clamp(0.875rem, 2vw, 1rem);
 	}
 </style>

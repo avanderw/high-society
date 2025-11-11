@@ -65,10 +65,12 @@
 	}
 
 	article {
-		max-width: 500px;
+		max-width: min(500px, 95vw);
 		width: 100%;
 		margin: 0;
 		animation: slideIn 0.3s ease-out;
+		max-height: 90vh;
+		overflow-y: auto;
 	}
 
 	@keyframes slideIn {
@@ -82,6 +84,10 @@
 		}
 	}
 
+	header h2 {
+		font-size: clamp(1.25rem, 4vw, 1.5rem);
+	}
+
 	.result-content {
 		text-align: center;
 		padding: 1rem 0;
@@ -89,11 +95,11 @@
 
 	.winner-info h3 {
 		margin: 0 0 0.5rem 0;
-		font-size: 1.5rem;
+		font-size: clamp(1.25rem, 4vw, 1.5rem);
 	}
 
 	.winning-bid {
-		font-size: 1.1rem;
+		font-size: clamp(1rem, 2.5vw, 1.1rem);
 		color: var(--pico-primary);
 		font-weight: bold;
 	}
@@ -108,6 +114,7 @@
 	.card-won h4 {
 		margin: 0 0 1rem 0;
 		color: var(--pico-muted-color);
+		font-size: clamp(0.875rem, 2.5vw, 1rem);
 	}
 
 	.card-display {
@@ -121,11 +128,11 @@
 	}
 
 	.card-display strong {
-		font-size: 1.2rem;
+		font-size: clamp(1rem, 3vw, 1.2rem);
 	}
 
 	.card-value {
-		font-size: 2rem;
+		font-size: clamp(1.5rem, 5vw, 2rem);
 		font-weight: bold;
 		color: var(--pico-primary);
 	}
@@ -136,11 +143,12 @@
 
 	.no-winner p {
 		margin-bottom: 1rem;
-		font-size: 1.1rem;
+		font-size: clamp(1rem, 2.5vw, 1.1rem);
 	}
 
 	.card-info {
 		color: var(--pico-muted-color);
+		font-size: clamp(0.875rem, 2vw, 1rem);
 	}
 
 	footer {
@@ -149,6 +157,7 @@
 	}
 
 	footer button {
-		min-width: 150px;
+		min-width: min(150px, 100%);
+		font-size: clamp(0.875rem, 2.5vw, 1rem);
 	}
 </style>
