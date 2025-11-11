@@ -8,7 +8,10 @@
 
 	let { player, onDiscard }: Props = $props();
 
-	const luxuryCards = $derived(player.getLuxuryCards());
+	// Sort luxury cards by value (ascending)
+	const luxuryCards = $derived(
+		[...player.getLuxuryCards()].sort((a, b) => a.value - b.value)
+	);
 </script>
 
 <dialog open>

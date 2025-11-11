@@ -19,7 +19,21 @@
 		return players.map(player => ({
 			player,
 			currentStatus: calculator.calculate(player.getStatusCards()),
-			statusCards: player.getStatusCards()
+			// Sort status cards by value (ascending) - luxury cards first, then prestige, then disgrace
+			statusCards: player.getStatusCards().sort((a, b) => {
+				// Luxury cards - sort by value ascending
+				if (a instanceof LuxuryCard && b instanceof LuxuryCard) {
+					return a.value - b.value;
+				}
+				// Keep luxury cards before prestige/disgrace
+				if (a instanceof LuxuryCard) return -1;
+				if (b instanceof LuxuryCard) return 1;
+				// Keep prestige before disgrace
+				if (a instanceof PrestigeCard && !(b instanceof PrestigeCard)) return -1;
+				if (b instanceof PrestigeCard && !(a instanceof PrestigeCard)) return 1;
+				// Within same type, maintain order
+				return 0;
+			})
 		}));
 	});
 </script>
