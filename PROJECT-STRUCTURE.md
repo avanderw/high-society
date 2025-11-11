@@ -1,302 +1,167 @@
-# High Society - Complete Project Structure
+# Project Structure
+
+## Directory Layout
 
 ```
 high-society/
+├── relay-server.js              # Socket.IO relay server
+├── test-relay.js                # Server testing script
+├── .env                         # Local environment config
+├── package.json                 # Dependencies
+├── vite.config.ts               # Vite + PWA config
+├── svelte.config.js             # SvelteKit config
+├── tsconfig.json                # TypeScript config
 │
-├── 📄 Configuration Files
-│   ├── package.json                          # Dependencies (socket.io-client, etc.)
-│   ├── vite.config.ts                        # Vite + PWA config
-│   ├── svelte.config.js                      # SvelteKit config (adapter-static)
-│   ├── tsconfig.json                         # TypeScript config
-│   ├── .env                                  # Local environment (VITE_SOCKET_SERVER_URL)
-│   └── .env.example                          # Environment template
-│
-├── 🌐 Relay Server
-│   ├── relay-server.js                       # Socket.IO relay server (room management, broadcasting)
-│   └── test-relay.js                         # Test script for relay server
-│
-├── 📚 Documentation
-│   ├── README.md                             # Main project documentation
-│   ├── QUICKSTART-MULTIPLAYER.md             # Step-by-step multiplayer setup
-│   ├── MULTIPLAYER-ARCHITECTURE.md           # Technical architecture guide
-│   ├── IMPLEMENTATION-SUMMARY.md             # Complete implementation summary
-│   ├── 20251001T141917_high-society-coding-specification_1a93b170.md
-│   └── 20251001T142857_high-society-rules_0b8224f9.md
-│
-├── 📁 src/
+├── src/
+│   ├── app.html                 # HTML template
+│   ├── routes/
+│   │   ├── +layout.svelte       # Root layout (Pico CSS)
+│   │   └── +page.svelte         # Main game page
 │   │
-│   ├── 🎮 Routes (Pages)
-│   │   ├── routes/
-│   │   │   ├── +layout.svelte               # Root layout (Pico CSS)
-│   │   │   └── +page.svelte                 # Main game page (mode selection, multiplayer integration)
-│   │   │
-│   │   ├── app.html                         # HTML template
-│   │   └── app.d.ts                         # TypeScript declarations
-│   │
-│   └── 📚 lib/
+│   └── lib/
+│       ├── domain/              # Game logic (pure TypeScript)
+│       │   ├── cards.ts         # Card entities
+│       │   ├── player.ts        # Player entity
+│       │   ├── gameState.ts     # Game state machine
+│       │   ├── auction.ts       # Auction system
+│       │   └── scoring.ts       # Scoring system
 │       │
-│       ├── 🎯 Domain Layer (Game Logic)
-│       │   ├── domain/
-│       │   │   ├── cards.ts                 # Card entities (Luxury, Prestige, Disgrace, Money)
-│       │   │   ├── player.ts                # Player entity (money, status, bids)
-│       │   │   ├── gameState.ts             # Game state machine (phases, rounds, auctions)
-│       │   │   ├── auction.ts               # Auction system (RegularAuction, DisgraceAuction)
-│       │   │   └── scoring.ts               # Scoring system (cast out, status calculation)
-│       │   │
-│       │   └── index.ts                     # Library exports
+│       ├── multiplayer/         # Networking layer
+│       │   ├── events.ts        # Event type system
+│       │   ├── service.ts       # WebSocket client
+│       │   └── serialization.ts # State serialization
 │       │
-│       ├── 🌐 Multiplayer System (NEW!)
-│       │   ├── multiplayer/
-│       │   │   ├── events.ts                # Event types (10+ game events, type-safe)
-│       │   │   ├── service.ts               # MultiplayerService (WebSocket client, singleton)
-│       │   │   └── serialization.ts         # State serialization (GameState ↔ JSON)
-│       │
-│       ├── 🎨 UI Components
-│       │   ├── components/
-│       │   │   ├── GameSetup.svelte         # Local game setup (player names)
-│       │   │   ├── MultiplayerSetup.svelte  # Multiplayer lobby (NEW!)
-│       │   │   ├── GameBoard.svelte         # Main game board (status deck, triggers)
-│       │   │   ├── AuctionPanel.svelte      # Auction controls (bid/pass buttons)
-│       │   │   ├── PlayerHand.svelte        # Player's money cards
-│       │   │   ├── StatusDisplay.svelte     # Player status/money display
-│       │   │   ├── ScoreBoard.svelte        # End game scoring
-│       │   │   ├── LuxuryDiscardModal.svelte # Luxury card discard modal
-│       │   │   └── UpdatePrompt.svelte      # PWA update prompt
-│       │
-│       └── 🖼️ Assets
-│           └── assets/
-│               └── favicon.svg
+│       └── components/          # UI components (Svelte)
+│           ├── GameSetup.svelte
+│           ├── MultiplayerSetup.svelte
+│           ├── GameBoard.svelte
+│           ├── AuctionPanel.svelte
+│           ├── PlayerHand.svelte
+│           ├── StatusDisplay.svelte
+│           ├── ScoreBoard.svelte
+│           ├── LuxuryDiscardModal.svelte
+│           └── UpdatePrompt.svelte
 │
-├── 📦 Static Files
-│   └── static/
-│       └── robots.txt
+├── static/                      # Static assets
+│   ├── icon-192.png
+│   ├── icon-512.png
+│   └── robots.txt
 │
-└── 🏗️ Build Output
-    └── build/                                # Production build (adapter-static)
-        ├── _app/                             # App bundles
-        ├── sw.js                             # Service worker (PWA)
-        └── manifest.webmanifest              # PWA manifest
-
+└── build/                       # Production build output
+    ├── index.html
+    ├── sw.js                    # Service worker
+    ├── manifest.webmanifest     # PWA manifest
+    └── _app/                    # App bundles
 ```
 
-## 📊 Component Relationships
+## Architecture Layers
 
-### Page Flow
-```
-Main Menu (+page.svelte)
-├── Local Game
-│   ├── GameSetup.svelte → Enter player names
-│   └── Game Components → Play local hotseat
-│
-└── Multiplayer Game
-    ├── MultiplayerSetup.svelte → Create/Join room
-    │   ├── Create Room → Host lobby
-    │   └── Join Room → Guest lobby
-    │
-    └── Game Components → Play online
-        ├── GameBoard.svelte
-        ├── AuctionPanel.svelte
-        ├── PlayerHand.svelte
-        ├── StatusDisplay.svelte
-        └── ScoreBoard.svelte
-```
+### Domain Layer (`src/lib/domain/`)
+Pure game logic with no UI dependencies:
+- **Cards**: Luxury, Prestige, Disgrace, Money entities
+- **Player**: Money management, status tracking, bids
+- **GameState**: Game phases, round management, state machine
+- **Auction**: Regular and Disgrace auction mechanics
+- **Scoring**: Cast out determination, winner calculation
 
-### Data Flow (Multiplayer)
+### Multiplayer Layer (`src/lib/multiplayer/`)
+Networking and state synchronization:
+- **Events**: Type-safe event system (10+ event types)
+- **Service**: WebSocket client (Socket.IO), singleton pattern
+- **Serialization**: GameState ↔ JSON conversion
+
+### UI Layer (`src/lib/components/` & `src/routes/`)
+Svelte components using Pico CSS:
+- **Setup**: Game configuration (local/multiplayer)
+- **Board**: Main game display, card deck
+- **Auction**: Bidding interface
+- **Display**: Status tracking, scoreboard
+- **Modals**: Luxury discard, PWA updates
+
+## Data Flow
+
+### Local Game
 ```
-User Action (Bid/Pass)
-    ↓
-Local GameState Update
-    ↓
-Event Broadcast (MultiplayerService)
-    ↓
-Relay Server (relay-server.js)
-    ↓
-All Clients in Room
-    ↓
-Event Listener (setupMultiplayerListeners)
-    ↓
-Remote GameState Update
-    ↓
-UI Update (updateCounter++)
+User Input → GameState Update → UI Refresh
 ```
 
-## 🎯 Key Directories Explained
-
-### `/src/lib/domain/`
-**Pure game logic** - No UI, no networking, just business rules
-- Cards: Entity classes with game effects
-- Player: Manages money, status, bids
-- GameState: Orchestrates game flow
-- Auction: Handles bidding mechanics
-- Scoring: Calculates winners
-
-### `/src/lib/multiplayer/`
-**Networking layer** - Handles online play
-- events.ts: Defines what can happen
-- service.ts: Sends/receives events
-- serialization.ts: Converts state for network
-
-### `/src/lib/components/`
-**UI layer** - Svelte components
-- Display game state
-- Handle user input
-- Reactive updates via Svelte 5 runes
-
-### `/src/routes/`
-**Pages** - SvelteKit routes
-- +page.svelte: Main game orchestration
-- +layout.svelte: Shared layout (CSS)
-
-## 📈 Dependencies Tree
-
+### Multiplayer Game
 ```
-High Society App
-├── SvelteKit 5 (Framework)
-│   ├── Svelte 5 (UI library with runes)
-│   ├── Vite 7 (Build tool)
-│   └── adapter-static (Static site generation)
-│
-├── Pico CSS (Styling)
-│   └── @picocss/pico
-│
-├── PWA Support
-│   ├── @vite-pwa/sveltekit
-│   └── workbox-* (Service worker)
-│
-└── Multiplayer
-    ├── socket.io-client (WebSocket client)
-    └── socket.io (Server - separate install)
+User Action → Local GameState Update → Broadcast Event
+                                            ↓
+                                      Relay Server
+                                            ↓
+                               All Clients in Room
+                                            ↓
+                            Remote GameState Update → UI Refresh
 ```
 
-## 🔢 By the Numbers
+## Key Files
 
-### Code Statistics
-- **Total TypeScript Files**: 20+
-- **Svelte Components**: 10
-- **Domain Classes**: 15+
-- **Event Types**: 10+
-- **Lines of Code**: ~3,500+
+| File | Purpose |
+|------|---------|
+| `relay-server.js` | WebSocket relay (room management, broadcasting) |
+| `src/routes/+page.svelte` | Main game orchestration |
+| `src/lib/domain/gameState.ts` | Core game logic |
+| `src/lib/multiplayer/service.ts` | Network communication |
+| `vite.config.ts` | Build configuration |
 
-### Feature Completeness
-- ✅ Full game rules implementation
-- ✅ Local hotseat mode
-- ✅ Online multiplayer mode
-- ✅ PWA installable
-- ✅ Mobile responsive
-- ✅ Type-safe (100% TypeScript)
-- ✅ Production ready
+## Tech Stack
 
-### Bundle Sizes (Production)
-- Client bundle: ~95 KB (gzipped: ~31 KB)
-- Server bundle: ~126 KB
-- CSS: ~83 KB (gzipped: ~12 KB)
-- Total: ~304 KB
+- **Framework**: SvelteKit 5 with Svelte 5 runes
+- **Language**: TypeScript
+- **Styling**: Pico CSS (semantic, minimal)
+- **Build**: Vite 7
+- **Networking**: Socket.IO
+- **PWA**: Vite PWA plugin + Workbox
 
-## 🎨 UI Component Hierarchy
+## Component Hierarchy
 
 ```
 +page.svelte (Main orchestrator)
-├── Mode: Menu
-│   └── [Mode selection cards]
-│
-├── Mode: Local Setup
-│   └── GameSetup.svelte
-│       └── [Player name inputs]
-│
-├── Mode: Multiplayer Setup
-│   └── MultiplayerSetup.svelte
-│       ├── [Create/Join forms]
-│       └── [Player lobby]
-│
-└── Mode: Playing
-    ├── [Multiplayer info badge]
-    ├── [Error messages]
+├── GameSetup.svelte (Local mode)
+├── MultiplayerSetup.svelte (Multiplayer lobby)
+└── Game Components (When playing)
     ├── GameBoard.svelte
-    │   ├── [Status deck]
-    │   ├── [Current card]
-    │   └── [Game end triggers]
-    │
-    ├── Grid (auction + status)
-    │   ├── AuctionPanel.svelte
-    │   │   ├── [Current player]
-    │   │   ├── [Bid info]
-    │   │   └── [Bid/Pass buttons]
-    │   │
-    │   └── StatusDisplay.svelte
-    │       └── [All players' status]
-    │
+    ├── AuctionPanel.svelte
     ├── PlayerHand.svelte
-    │   └── [Selectable money cards]
-    │
-    ├── LuxuryDiscardModal.svelte (conditional)
-    │   └── [Discard selection]
-    │
-    └── ScoreBoard.svelte (end game)
-        ├── [Final scores]
-        ├── [Cast out players]
-        └── [Winner]
+    ├── StatusDisplay.svelte
+    ├── ScoreBoard.svelte
+    ├── LuxuryDiscardModal.svelte
+    └── UpdatePrompt.svelte
 ```
 
-## 🚀 Development Workflow
+## Development Workflow
 
-```bash
-# 1. Development
-npm install              # Install dependencies
-node relay-server.js     # Start relay (new terminal)
-npm run dev              # Start dev server
+```powershell
+# Install dependencies
+npm install
 
-# 2. Testing
-npm run build            # Production build
-npm run preview          # Test production build
-node test-relay.js       # Test relay server
+# Development (2 terminals)
+node relay-server.js    # Terminal 1: Relay server
+npm run dev             # Terminal 2: Dev server
 
-# 3. Deployment
-npm run build            # Build static files
-# Deploy 'build/' to:
-# - GitHub Pages
-# - Netlify
-# - Vercel
-# - Any static host
+# Testing
+node test-relay.js      # Test relay server
+npm run build           # Test production build
 
-# Deploy relay-server.js to:
-# - Heroku
-# - Railway
-# - DigitalOcean
-# - AWS/GCP
+# Production
+npm run build           # Build static site
+npm run preview         # Preview production build
 ```
 
-## 🎯 Entry Points
+## Entry Points
 
 ### For Users
-- **Main app**: `http://localhost:5173` (dev) or deployed URL
-- **Relay server**: Runs on port 3000 (or configured PORT)
+- **Game**: http://localhost:5173 (dev) or deployed URL
+- **Relay Server**: Port 3000 (or configured PORT)
 
 ### For Developers
-- **Main game logic**: `src/routes/+page.svelte`
-- **Domain layer**: `src/lib/domain/`
-- **Multiplayer**: `src/lib/multiplayer/`
-- **Relay server**: `relay-server.js`
-- **Documentation**: All `.md` files in root
+- **Main logic**: `src/routes/+page.svelte`
+- **Game rules**: `src/lib/domain/`
+- **Networking**: `src/lib/multiplayer/`
+- **Server**: `relay-server.js`
 
-## 📖 Documentation Guide
+## Documentation
 
-| Need to... | Read this |
-|------------|-----------|
-| Get started quickly | `QUICKSTART-MULTIPLAYER.md` |
-| Understand architecture | `MULTIPLAYER-ARCHITECTURE.md` |
-| See what was implemented | `IMPLEMENTATION-SUMMARY.md` |
-| Deploy to production | `README.md` (Multiplayer Setup) |
-| Understand game rules | `20251001T142857_high-society-rules_*.md` |
-| See code specs | `20251001T141917_high-society-coding-specification_*.md` |
-
----
-
-**Legend**
-- 📄 Configuration
-- 🌐 Server/Network
-- 📚 Documentation
-- 🎮 Pages/Routes
-- 🎯 Domain/Logic
-- 🎨 UI Components
-- 📦 Build/Static
-- 🖼️ Assets
+See [DOCUMENTATION-INDEX.md](./DOCUMENTATION-INDEX.md) for full documentation listing.

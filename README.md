@@ -2,6 +2,8 @@
 
 A digital implementation of Reiner Knizia's High Society auction card game, built with SvelteKit 5 and Pico CSS.
 
+**📖 [Documentation Index](./DOCUMENTATION-INDEX.md)** | **🚀 [Quick Start Guide](./QUICKSTART-MULTIPLAYER.md)** | **🐛 [Troubleshooting](./TROUBLESHOOTING.md)**
+
 ## Game Overview
 
 High Society is an auction-based card game for 2-5 players where socialites bid on luxury items, prestige, and try to avoid disgrace while managing their money carefully. The goal is to accumulate the highest status without being cast out for having the least money.
@@ -172,10 +174,14 @@ The game follows clean architecture principles with clear separation between dom
 
 ## Documentation
 
-- **[QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md)** - Quick start guide for multiplayer
-- **[MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md)** - Detailed architecture documentation
-- **[IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md)** - Complete implementation summary
-- Design documents in root directory for game rules and specifications
+- [DOCUMENTATION-INDEX.md](./DOCUMENTATION-INDEX.md) - Documentation hub and quick reference
+- [QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md) - Quick start guide for multiplayer
+- [MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md) - Detailed architecture documentation
+- [PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md) - Codebase organization
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Common issues and solutions
+- [IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md) - Complete implementation summary
+- [CHANGELOG.md](./CHANGELOG.md) - Version history
+- Game rules and specifications in root directory
 
 ## Testing
 
