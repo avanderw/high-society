@@ -2,6 +2,7 @@
 import { io, type Socket } from 'socket.io-client';
 import type { GameEvent } from './events';
 import { GameEventType, createGameEvent } from './events';
+import { generateRoomCode } from './wordlist';
 
 export type EventCallback = (event: GameEvent) => void;
 
@@ -93,14 +94,12 @@ export class MultiplayerService {
 				return;
 			}
 
-			const playerId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-			const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const playerId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const roomId = generateRoomCode();
 
-			this.playerId = playerId;
-			this.playerName = playerName;
-			this.roomId = roomId;
-
-			this.socket.emit('create_room', { roomId, playerId, playerName }, (response: any) => {
+		this.playerId = playerId;
+		this.playerName = playerName;
+		this.roomId = roomId;			this.socket.emit('create_room', { roomId, playerId, playerName }, (response: any) => {
 				if (response.success) {
 					console.log('[Multiplayer] Room created:', roomId);
 					resolve({ roomId, playerId });
