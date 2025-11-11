@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { getMultiplayerService } from '$lib/multiplayer/service';
 	import { GameEventType, type GameEvent } from '$lib/multiplayer/events';
-	import { normalizeRoomCode } from '$lib/multiplayer/wordlist';
+	import { normalizeRoomCode, isValidRoomCode } from '$lib/multiplayer/wordlist';
+	import { onMount } from 'svelte';
 	
 	type Props = {
 		onRoomReady: (roomId: string, playerId: string, playerName: string, isHost: boolean, players: Array<{ playerId: string; playerName: string }>) => void;
@@ -19,6 +20,7 @@
 	let currentPlayerId = $state('');
 	let isHost = $state(false);
 	let placeholderName = $state('');
+	let copiedToClipboard = $state(false);
 
 	const multiplayerService = getMultiplayerService();
 
@@ -38,6 +40,38 @@
 
 	// Generate initial placeholder name
 	generateRandomPlaceholder();
+
+	// Auto-populate room code from clipboard when switching to join mode
+	onMount(async () => {
+		// Try to read clipboard when component mounts or mode changes
+		try {
+			const clipboardText = await navigator.clipboard.readText();
+			const normalizedCode = normalizeRoomCode(clipboardText);
+			if (isValidRoomCode(normalizedCode)) {
+				roomCode = normalizedCode;
+			}
+		} catch (err) {
+			// Clipboard access may be denied, silently ignore
+			console.log('Could not read clipboard:', err);
+		}
+	});
+
+	// Watch for mode changes to auto-populate clipboard
+	$effect(() => {
+		if (mode === 'join' && !roomCode) {
+			// Try to auto-populate from clipboard when switching to join mode
+			navigator.clipboard.readText()
+				.then(clipboardText => {
+					const normalizedCode = normalizeRoomCode(clipboardText);
+					if (isValidRoomCode(normalizedCode)) {
+						roomCode = normalizedCode;
+					}
+				})
+				.catch(() => {
+					// Silently ignore clipboard errors
+				});
+		}
+	});
 
 	async function createRoom() {
 		// Use placeholder if no name entered
@@ -67,6 +101,18 @@
 			currentPlayerId = playerId;
 			isHost = true;
 			// Don't set connectedPlayers manually - let the room:joined event handle it
+			
+			// Auto-copy room code to clipboard
+			try {
+				await navigator.clipboard.writeText(roomId);
+				copiedToClipboard = true;
+				// Reset the copied state after 3 seconds
+				setTimeout(() => {
+					copiedToClipboard = false;
+				}, 3000);
+			} catch (err) {
+				console.log('Could not copy to clipboard:', err);
+			}
 			
 			mode = 'create';
 		} catch (error) {
@@ -185,7 +231,12 @@
 	}
 
 	function copyRoomCode() {
-		navigator.clipboard.writeText(currentRoomId);
+		navigator.clipboard.writeText(currentRoomId).then(() => {
+			copiedToClipboard = true;
+			setTimeout(() => {
+				copiedToClipboard = false;
+			}, 2000);
+		});
 	}
 
 	async function shareRoomCode() {
@@ -291,6 +342,11 @@
 		<div class="room-lobby">
 			<div class="room-code-display">
 				<h3>Room Code</h3>
+				{#if copiedToClipboard}
+					<div class="copied-notification" role="alert">
+						✓ Copied to clipboard!
+					</div>
+				{/if}
 				<div class="code-box">
 					<code class="room-code">{currentRoomId}</code>
 				</div>
@@ -473,6 +529,27 @@
 
 	.room-code-display h3 {
 		margin-bottom: 0.5rem;
+	}
+
+	.copied-notification {
+		background-color: var(--pico-ins-color);
+		color: var(--pico-contrast);
+		padding: 0.5rem 1rem;
+		border-radius: var(--pico-border-radius);
+		margin-bottom: 0.5rem;
+		font-weight: 600;
+		animation: slideIn 0.3s ease-out;
+	}
+
+	@keyframes slideIn {
+		from {
+			opacity: 0;
+			transform: translateY(-10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 
 	.code-box {
