@@ -20,8 +20,8 @@ describe('Multiplayer Game Flow - Auction Scenario', () => {
 	let playerC: any;
 
 	beforeEach(() => {
-		// Initialize game with 3 players
-		gameState = new GameState('test-game');
+		// Initialize game with 3 players using seed 1777 (A starts with Opera)
+		gameState = new GameState('test-game', 1777);
 		gameState.initializeGame(['A', 'B', 'C']);
 		gameState.startNewRound();
 

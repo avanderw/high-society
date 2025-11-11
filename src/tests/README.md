@@ -1,6 +1,6 @@
-# Testing High Society Multiplayer
+# Testing High Society
 
-This directory contains automated tests for the High Society card game, with a focus on multiplayer synchronization.
+This directory contains comprehensive automated tests for the High Society card game, covering all game mechanics and multiplayer synchronization.
 
 ## Running Tests
 
@@ -18,97 +18,165 @@ npm run test:run
 npm run test:ui
 
 # Run specific test file
-npm run test:run -- multiplayer-auction
+npm run test:run -- disgrace-cards
 ```
 
 ## Test Structure
 
+### Core Game Mechanics Tests
+
+#### `disgrace-cards.test.ts` ✅
+Comprehensive tests for all three disgrace cards:
+- **Faux Pas**: Luxury card discard mechanics (immediate or pending)
+- **Passé**: -5 status penalty
+- **Scandale**: Halve final status (÷2), game end trigger
+- Disgrace auction mechanics (first to pass gets card, others lose money)
+- Scoring order verification
+
+#### `status-cards.test.ts` ✅
+Tests for normal status cards:
+- **Luxury Cards**: Values 1-10, status contribution
+- **Prestige Cards**: ×2 multiplier, game end triggers
+- Combined scenarios with multiple cards
+- Card metadata and uniqueness
+- Edge cases (empty cards, zero values)
+
+#### `auction-completion.test.ts` ✅
+Auction completion and state management:
+- Regular auction completion (last bidder wins)
+- No-bid auctions (everyone passes, last gets card free)
+- Disgrace auction completion (first to pass gets card)
+- State cleanup between rounds (bids cleared, cards retained)
+- Money card discarding and returning
+- 2-player and 5-player edge cases
+
+#### `game-end-triggers.test.ts` ✅
+Game end trigger mechanics:
+- 4 game-end trigger cards: 3 Prestige + 1 Scandale
+- Game ends when 4th trigger is revealed
+- No auction on final trigger card
+- Transition to SCORING phase
+- Trigger card distribution and randomization
+
+#### `scoring-and-endgame.test.ts` ✅
+End game state and scoring:
+- **Cast Out Mechanics**: Poorest player(s) excluded from winning
+- **Scoring Order**: (luxury + passé) × prestige ÷ scandale
+- **Tie-Breaker Rules**: Status > Money > Highest Luxury Card
+- Complex scoring scenarios with all card types
+- Edge cases (no status, all zero status, single player)
+
+#### `full-game-playthrough.test.ts` ✅
+Integration tests with complete game flows:
+- Full 3-player game from start to finish
+- Disgrace card handling in full game context
+- Faux Pas luxury discard flow
+- Money spending and remaining money tracking
+- Winner determination
+- 2-player and 5-player games
+- Edge cases (similar spending, varied strategies)
+
+### Multiplayer Tests
+
+#### `multiplayer-auction.test.ts` ✅
+Tests core auction logic with exact scenarios:
+- Multi-player bidding sequences
+- Auction completion detection
+- Winner identification
+- Simulated multiplayer perspectives
+
+#### `multiplayer-sync.test.ts` ⚠️
+Tests multiplayer event synchronization:
+- State synchronization across clients
+- Event deduplication (skip own broadcasts)
+- Bid state clearing between rounds
+- Serialization/deserialization
+
+#### `reactivity-fix.test.ts` ✅
+Tests Svelte reactivity fixes:
+- New object creation on deserialization
+- Proper state updates for UI reactivity
+
 ### `/tests/mocks/`
-Mock implementations for testing without real servers:
-- `mockMultiplayerService.ts`: Simulates multiplayer events without WebSocket connection
+Mock implementations for testing:
+- `mockMultiplayerService.ts`: Simulates multiplayer events without WebSocket
 
-### `/tests/multiplayer-auction.test.ts`
-Tests core auction logic with the exact scenario from gameplay:
-- **A bids 1000**
-- **B bids 2000**  
-- **C passes**
-- **A bids 2000 more (total 3000)**
-- **B passes** → Auction should complete with A as winner
+## Test Coverage
 
-✅ **Status**: PASSING - Auction logic is correct
+### ✅ Covered Game Rules
 
-### `/tests/multiplayer-sync.test.ts`
-Tests that all players see the same game state after processing same events.
+- [x] 16 status cards (10 luxury, 3 prestige, 3 disgrace)
+- [x] Money card management and bidding mechanics
+- [x] Regular vs disgrace auction differences
+- [x] Game end triggers (4 dark green cards)
+- [x] Cast out mechanics for poorest players
+- [x] Status calculation order: (luxury + passé) × prestige ÷ scandale
+- [x] Tie-breaking rules (status > money > highest luxury)
+- [x] Faux Pas luxury discard (immediate or pending)
+- [x] Passé -5 status penalty
+- [x] Scandale status halving
+- [x] Turn order and auction flow
+- [x] Player count validation (2-5 players)
+- [x] Money card discarding and returning
+- [x] State cleanup between rounds
+- [x] Multiple rounds and full game flow
 
-⚠️ **Status**: Needs refinement - Games have different random decks
+### Test Statistics
+
+- **Total Test Files**: 9
+- **Core Game Mechanics**: 6 comprehensive test suites
+- **Multiplayer Tests**: 3 test suites
+- **Coverage**: All major game rules and edge cases
+
+## Common Patterns
+
+### Testing Game Flow
+```typescript
+const gameState = new GameState('test-game');
+gameState.initializeGame(['Alice', 'Bob', 'Charlie']);
+gameState.startNewRound();
+
+const auction = gameState.getCurrentAuction()!;
+const player = gameState.getPlayers()[0];
+
+// Execute actions
+auction.processBid(player, [moneyCard]);
+auction.processPass(otherPlayer);
+
+// Complete round
+gameState.completeAuction();
+```
+
+### Testing Scoring
+```typescript
+const calculator = new StatusCalculator();
+const cards = [luxury, prestige, disgrace];
+const finalStatus = calculator.calculate(cards);
+
+const scoringService = new GameScoringService();
+const rankings = scoringService.calculateFinalRankings(players);
+```
 
 ## Key Findings
 
-### The Auction Logic is Correct ✅
+### Auction Logic ✅
 When all players process the same sequence of actions in the same order, they all correctly identify:
 - When the auction completes
 - Who the winner is
 - The final bid amount
 
-### Event Skipping is Correct ✅
-When a player performs an action (bid/pass):
-1. They process it locally
-2. They broadcast it to others
-3. They receive their own broadcast back
-4. They **correctly skip** processing it again (would be duplicate)
+### Scoring Calculation ✅
+The scoring order is correctly implemented:
+1. Sum luxury cards and subtract Passé penalties
+2. Multiply by prestige cards (2^n)
+3. Halve if Scandale present
+4. Floor to 0 if negative
 
-### What to Test Next
-
-1. **Full Multiplayer Event Flow**
-   - Create test with mock multiplayer service
-   - Simulate Host broadcasts GAME_STARTED
-   - Simulate players broadcast BID_PLACED / PASS_AUCTION
-   - Verify Host broadcasts AUCTION_COMPLETE
-   - Verify all clients sync to final state
-
-2. **Event Deduplication**
-   - Verify `shouldProcessEvent()` prevents duplicate processing
-   - Test with rapid-fire events
-   - Test with delayed/out-of-order events
-
-3. **State Synchronization**
-   - Test that `serializeGameState()` captures all necessary state
-   - Test that `deserializeGameState()` correctly reconstructs state
-   - Verify clients match host after `AUCTION_COMPLETE`
-
-## Common Issues to Watch For
-
-### Issue: "Client skips own pass event"
-**Status**: NOT A BUG - This is correct behavior!
-- Client processes pass locally
-- Client broadcasts event
-- Client receives own broadcast back  
-- Client skips it (already processed)
-
-### Issue: "Host sees auction complete, clients don't"
-**Possible Causes**:
-1. Host not broadcasting `AUCTION_COMPLETE` event
-2. Clients not receiving `AUCTION_COMPLETE` event
-3. Clients not processing `AUCTION_COMPLETE` correctly
-4. Network delay between events
-
-**How to Test**:
-- Add logging in `completeAuction()` to verify broadcast
-- Add logging in `AUCTION_COMPLETE` handler to verify receipt
-- Check server logs for event transmission
-
-## Test Coverage Goals
-
-- [ ] Basic auction logic (3 players, various bid sequences)
-- [ ] Multiplayer event broadcasting
-- [ ] Event deduplication
-- [ ] State serialization/deserialization  
-- [ ] Host/Client role separation
-- [ ] Auction completion synchronization
-- [ ] Luxury card discard flow
-- [ ] Multiple rounds
-- [ ] Game end conditions
-- [ ] Scoring calculations
+### State Management ✅
+- Bids properly cleared between rounds
+- Status cards retained across rounds
+- Money cards discarded or returned correctly
+- Game end triggers tracked accurately
 
 ## Writing New Tests
 

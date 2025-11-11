@@ -10,10 +10,12 @@ import { GameEventType } from '$lib/multiplayer/events';
  */
 describe('Multiplayer Event Synchronization', () => {
 	it('should keep all players in sync when B passes to complete auction', () => {
-		// Setup 3 separate game states (simulating 3 clients)
-		const hostGame = new GameState('host-game');
-		const clientBGame = new GameState('client-b-game');
-		const clientCGame = new GameState('client-c-game');
+		// Setup 3 separate game states (simulating 3 clients) with same seed for consistency
+		// Using seed 1777 which gives A as starting player with Opera (luxury card)
+		const seed = 1777;
+		const hostGame = new GameState('host-game', seed);
+		const clientBGame = new GameState('client-b-game', seed);
+		const clientCGame = new GameState('client-c-game', seed);
 
 		// Initialize all with same players
 		[hostGame, clientBGame, clientCGame].forEach(game => {
@@ -97,13 +99,14 @@ describe('Multiplayer Event Synchronization', () => {
 	it('should demonstrate the bug: Client B skips own pass event', () => {
 		// This test demonstrates what happens in the real multiplayer scenario
 		
-		// Host's game state
-		const hostGame = new GameState('host');
+		// Use same seed for consistent state
+		const seed = 23456;
+		const hostGame = new GameState('host', seed);
 		hostGame.initializeGame(['A', 'B', 'C']);
 		hostGame.startNewRound();
 
 		// Client B's game state  
-		const clientBGame = new GameState('client-b');
+		const clientBGame = new GameState('client-b', seed);
 		clientBGame.initializeGame(['A', 'B', 'C']);
 		clientBGame.startNewRound();
 
@@ -161,7 +164,8 @@ describe('Multiplayer Event Synchronization', () => {
 	it('should clear bid state between rounds - Player.discardPlayedMoney() test', () => {
 		// This test focuses specifically on the bid clearing issue you described
 		// Setup a simple game with one auction
-		const game = new GameState('test-game');
+		// Using seed 88888 which gives cards suitable for this test
+		const game = new GameState('test-game', 88888);
 		game.initializeGame(['A', 'B', 'C']);
 		game.startNewRound();
 
@@ -244,8 +248,8 @@ describe('Multiplayer Event Synchronization', () => {
 		
 		const { serializeGameState, deserializeGameState } = await import('$lib/multiplayer/serialization');
 		
-		// Setup host game
-		const hostGame = new GameState('test-game');
+		// Setup host game with seed
+		const hostGame = new GameState('test-game', 45678);
 		hostGame.initializeGame(['A', 'B', 'C']);
 		hostGame.startNewRound();
 
@@ -331,8 +335,10 @@ describe('Multiplayer Event Synchronization', () => {
 		
 		const { serializeGameState, deserializeGameState } = await import('$lib/multiplayer/serialization');
 		
-		// Setup client game - round 1
-		const clientGame = new GameState('test-game');
+		// Setup client game - round 1 with seed  
+		// Using seed 77777 which gives suitable cards for multi-round testing
+		const seed = 77777;
+		const clientGame = new GameState('test-game', seed);
 		clientGame.initializeGame(['A', 'B', 'C']);
 		clientGame.startNewRound();
 
@@ -372,7 +378,7 @@ describe('Multiplayer Event Synchronization', () => {
 		// Actually, let's simulate what happens if they get the host's serialized state
 		// but it's from AFTER startNewRound was called
 		
-		const hostGame = new GameState('test-game');
+		const hostGame = new GameState('test-game', seed);
 		hostGame.initializeGame(['A', 'B', 'C']);
 		hostGame.startNewRound();
 		

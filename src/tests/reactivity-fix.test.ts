@@ -9,21 +9,24 @@ import type { MoneyCard } from '$lib/domain/cards';
  */
 describe('Reactivity Fix - Deserialization', () => {
 	it('should create a NEW GameState object on deserialization for reactivity', () => {
-		// Create original game state
-		const originalGame = new GameState('test-game');
+		// Create original game state with seed 1777 (A starts with Opera - luxury card)
+		const originalGame = new GameState('test-game', 1777);
 		originalGame.initializeGame(['A', 'B', 'C']);
 		originalGame.startNewRound();
 
 		const [playerA, playerB, playerC] = originalGame.getPlayers();
 		const auction = originalGame.getCurrentAuction()!;
 
-		// Make some bids
-		auction.processBid(playerA, [playerA.getMoneyHand().find((c: MoneyCard) => c.value === 1000)!]);
-		auction.processBid(playerB, [playerB.getMoneyHand().find((c: MoneyCard) => c.value === 4000)!]);
+		// Make some bids - use whatever money cards are available
+		const aMoneyCard = playerA.getMoneyHand().find((c: MoneyCard) => c.value > 0)!;
+		const bMoneyCard = playerB.getMoneyHand().find((c: MoneyCard) => c.value > aMoneyCard.value)!;
+		
+		auction.processBid(playerA, [aMoneyCard]);
+		auction.processBid(playerB, [bMoneyCard]);
 		auction.processPass(playerC);
 
 		console.log('Original game - Player B bid:', playerB.getCurrentBidAmount());
-		expect(playerB.getCurrentBidAmount()).toBe(4000);
+		expect(playerB.getCurrentBidAmount()).toBe(bMoneyCard.value);
 
 		// Serialize the state
 		const serialized = serializeGameState(originalGame);
