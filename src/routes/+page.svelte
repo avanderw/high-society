@@ -17,7 +17,7 @@
 	
 	import { getMultiplayerService } from '$lib/multiplayer/service';
 	import { GameEventType, type GameEvent } from '$lib/multiplayer/events';
-	import { serializeGameState, deserializeGameState } from '$lib/multiplayer/serialization';
+	import { serializeGameState, deserializeGameState, serializeStatusCard, deserializeStatusCard } from '$lib/multiplayer/serialization';
 	
 	// Multiplayer state (always multiplayer now)
 	let roomId = $state('');
@@ -558,6 +558,17 @@
 				// Verify player objects are different
 				console.log('Player objects changed:', oldPlayers[0] !== newPlayers[0]);
 				
+				// Show auction result modal if auction result data is provided
+				if (event.data.auctionResult && event.data.auctionResult.card) {
+					const { winnerId, card: serializedCard, winningBid } = event.data.auctionResult;
+					const winner = winnerId ? gameState.getPlayers().find(p => p.id === winnerId) ?? null : null;
+					const card = deserializeStatusCard(serializedCard);
+					
+					auctionResultData = { winner, card, winningBid };
+					showAuctionResult = true;
+					console.log('CLIENT: Showing auction result modal for card:', card.name);
+				}
+				
 				// Handle luxury discard if needed
 				if (event.data.needsLuxuryDiscard) {
 					const winner = gameState.getPlayers().find(p => p.id === event.data.winnerId);
@@ -758,7 +769,13 @@
 				multiplayerService.broadcastEvent(GameEventType.AUCTION_COMPLETE, {
 					gameState: serializeGameState(gameState),
 					needsLuxuryDiscard: true,
-					winnerId: winnerWithPending.id
+					winnerId: winnerWithPending.id,
+					auctionResult: {
+						winnerId: winner?.id ?? null,
+						winnerName: winner?.name ?? null,
+						card: card ? serializeStatusCard(card) : null,
+						winningBid
+					}
 				});
 			}
 		} else {
@@ -772,7 +789,13 @@
 				// Broadcast the new round state
 				multiplayerService.broadcastEvent(GameEventType.AUCTION_COMPLETE, {
 					gameState: serializeGameState(gameState),
-					needsLuxuryDiscard: false
+					needsLuxuryDiscard: false,
+					auctionResult: {
+						winnerId: winner?.id ?? null,
+						winnerName: winner?.name ?? null,
+						card: card ? serializeStatusCard(card) : null,
+						winningBid
+					}
 				});
 			}
 			
