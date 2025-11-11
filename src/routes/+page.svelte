@@ -331,10 +331,15 @@
 				
 				const result = auction.processBid(player, moneyCards);
 				console.log('Bid processed, result:', result);
-				
+
 				if (result === AuctionResult.COMPLETE) {
-					console.log('Auction complete - waiting for host to broadcast final state');
-					updateCounter++;
+					if (isHost) {
+						console.log('Host completing auction');
+						completeAuction();
+					} else {
+						console.log('Auction complete - waiting for host to broadcast final state');
+						updateCounter++;
+					}
 				} else {
 					// Move to next player
 					let nextIndex = (gameState.getCurrentPlayerIndex() + 1) % gameState.getPlayers().length;
@@ -351,7 +356,7 @@
 				console.error('Failed to process remote bid:', error);
 			}
 		});
-		
+
 		// ============================================================
 		// PASS_AUCTION EVENT - All players (except sender) update their local state
 		// ============================================================
@@ -383,10 +388,15 @@
 				
 				const result = auction.processPass(player);
 				console.log('Pass processed, result:', result);
-				
+
 				if (result === AuctionResult.COMPLETE) {
-					console.log('Auction complete - waiting for host to broadcast final state');
-					updateCounter++;
+					if (isHost) {
+						console.log('Host completing auction');
+						completeAuction();
+					} else {
+						console.log('Auction complete - waiting for host to broadcast final state');
+						updateCounter++;
+					}
 				} else {
 					// Move to next player
 					let nextIndex = (gameState.getCurrentPlayerIndex() + 1) % gameState.getPlayers().length;
@@ -401,7 +411,7 @@
 				console.error('Failed to process remote pass:', error);
 			}
 		});
-		
+
 		// ============================================================
 		// LUXURY_DISCARDED EVENT - All players (except sender) update their local state
 		// ============================================================
