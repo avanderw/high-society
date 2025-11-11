@@ -1175,7 +1175,7 @@
 								<h3>Current Auction</h3>
 								<p>
 									{#if currentPhase === GamePhase.DISGRACE_AUCTION}
-										<mark>Disgrace! Bid to avoid this card</mark>
+										<span class="warning-text" style="margin-top: 1rem">⚠️ Disgrace! Bid to avoid this card</span>
 									{:else}
 										Bid to win this luxury item
 									{/if}
@@ -1616,6 +1616,23 @@
 		.auction-card-panel {
 			min-width: 250px;
 			max-width: 300px;
+		}
+	}
+
+	.warning-text {
+		display: inline-block;
+		color: var(--pico-del-color);
+		background-color: rgba(255, 0, 0, 0.1);
+		padding: 0.25rem 0.5rem;
+		border-radius: var(--pico-border-radius);
+		font-size: clamp(0.75rem, 1.8vw, 0.875rem);
+		font-weight: 600;
+		border: 1px solid var(--pico-del-color);
+	}
+
+	@media (min-width: 768px) {
+		.warning-text {
+			padding: 0.375rem 0.75rem;
 		}
 	}
 
