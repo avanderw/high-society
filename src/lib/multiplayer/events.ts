@@ -7,6 +7,8 @@ export enum GameEventType {
 	PLAYER_JOINED = 'player:joined',
 	PLAYER_LEFT = 'player:left',
 	GAME_STARTED = 'game:started',
+	GAME_RESTART_REQUESTED = 'game:restart_requested',
+	GAME_RESTART_READY = 'game:restart_ready',
 	
 	// Game state sync
 	STATE_SYNC = 'state:sync',
@@ -71,6 +73,24 @@ export interface GameStartedEvent extends GameEvent {
 			name: string;
 		}>;
 		initialState: any; // GamePublicState
+	};
+}
+
+export interface GameRestartRequestedEvent extends GameEvent {
+	type: GameEventType.GAME_RESTART_REQUESTED;
+	data: {
+		hostPlayerId: string;
+		hostPlayerName: string;
+	};
+}
+
+export interface GameRestartReadyEvent extends GameEvent {
+	type: GameEventType.GAME_RESTART_READY;
+	data: {
+		playerId: string;
+		playerName: string;
+		readyCount: number;
+		totalPlayers: number;
 	};
 }
 
