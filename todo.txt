@@ -2,3 +2,5 @@ Add randomizer to the name field during game setup
 Fix cards remaining count not being in sync between players
 Add a status screen when an action completes showing who took what card
 Keep the money cards / pools sorted
+Make the join code mobile friendly
+Fix the score being rounded up, e.g. 1 % 2 = 1 not 0 in player status area

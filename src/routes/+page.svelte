@@ -321,9 +321,11 @@
 				return;
 			}
 			
-			// Add player to ready set
+			// Add player to ready set - reassign to trigger Svelte reactivity
 			if (event.data?.playerId) {
-				playersReady.add(event.data.playerId);
+				const newReady = new Set(playersReady);
+				newReady.add(event.data.playerId);
+				playersReady = newReady;
 				console.log(`Players ready: ${playersReady.size}/${lobbyPlayers.length}`);
 				
 				// Check if all players are ready and start if so
@@ -811,8 +813,9 @@
 		
 		// Reset restart state
 		restartRequested = true;
-		playersReady = new Set();
-		playersReady.add(myPlayerId); // Host is automatically ready
+		const newReady = new Set<string>();
+		newReady.add(myPlayerId); // Host is automatically ready
+		playersReady = newReady;
 		
 		// Request restart from all clients
 		multiplayerService.requestGameRestart();
@@ -825,7 +828,9 @@
 		
 		// Signal we're ready to restart
 		multiplayerService.signalRestartReady();
-		playersReady.add(myPlayerId);
+		const newReady = new Set(playersReady);
+		newReady.add(myPlayerId);
+		playersReady = newReady;
 		
 		console.log('Signaled ready for restart');
 	}
