@@ -154,9 +154,9 @@
 				</button>
 			</div>
 			{#if !canBid && totalSelected > 0}
-				<small style="color: var(--pico-del-color);">
-					Your new total ({newTotalBid.toLocaleString()}) must be higher than {currentBid.toLocaleString()}
-				</small>
+				<div class="warning-text">
+					⚠️ Your new total ({newTotalBid.toLocaleString()}) must be higher than {currentBid.toLocaleString()}
+				</div>
 			{/if}
 		{/if}
 	</footer>
@@ -318,5 +318,24 @@
 	.not-your-turn p {
 		margin: 0;
 		font-size: clamp(0.875rem, 2vw, 1rem);
+	}
+
+	.warning-text {
+		display: block;
+		color: var(--pico-del-color);
+		background-color: rgba(255, 0, 0, 0.1);
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--pico-border-radius);
+		font-size: clamp(0.75rem, 1.8vw, 0.875rem);
+		font-weight: 600;
+		border: 1px solid var(--pico-del-color);
+		margin-top: 0.5rem;
+		text-align: center;
+	}
+
+	@media (min-width: 768px) {
+		.warning-text {
+			padding: 0.625rem 1rem;
+		}
 	}
 </style>
