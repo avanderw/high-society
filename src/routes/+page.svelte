@@ -1,4 +1,4 @@
-npm <script lang="ts">
+﻿<script lang="ts">
 	import { GameState, GamePhase } from '$lib/domain/gameState';
 	import { GameScoringService } from '$lib/domain/scoring';
 	import { AuctionResult } from '$lib/domain/auction';
@@ -26,6 +26,7 @@ npm <script lang="ts">
 	let lobbyPlayers = $state<Array<{ playerId: string; playerName: string }>>([]);
 	let multiplayerService = getMultiplayerService();
 	let listenersRegistered = false; // Flag to prevent duplicate listener registration
+	let processedEvents = $state<Set<string>>(new Set()); // Track processed events to prevent duplicates
 	
 	// Map multiplayer player IDs to game player indices
 	let playerIdToGameIndex = $state<Map<string, number>>(new Map());
@@ -60,6 +61,24 @@ npm <script lang="ts">
 		return result;
 	});
 
+	// Helper to prevent duplicate event processing
+	function shouldProcessEvent(eventType: string, eventTimestamp: number): boolean {
+		const eventId = `${eventType}_${eventTimestamp}`;
+		if (processedEvents.has(eventId)) {
+			console.log(`Duplicate event detected: ${eventId} - skipping`);
+			return false;
+		}
+		processedEvents.add(eventId);
+		
+		// Clean up old events (keep last 100)
+		if (processedEvents.size > 100) {
+			const arr = Array.from(processedEvents);
+			processedEvents = new Set(arr.slice(-100));
+		}
+		
+		return true;
+	}
+
 	function startGame(playerNames: string[]) {
 		try {
 			const game = new GameState('game-' + Date.now());
@@ -85,35 +104,88 @@ npm <script lang="ts">
 				console.log(`Mapping ${lobbyPlayer.playerId} -> player index ${index} (${playerNames[index]})`);
 			});
 			
-			// If host, broadcast game start to all players
-			if (isHost) {
-				// Send player mapping so clients can determine their game index
-				const playerMapping = lobbyPlayers.map((lobbyPlayer, index) => ({
-					multiplayerId: lobbyPlayer.playerId,
-					gamePlayerIndex: index,
-					playerName: playerNames[index]
-				}));
-				
-				const eventData = {
-					players: playerNames.map((name, i) => ({ 
-						id: game.getPlayers()[i].id, 
-						name 
-					})),
-					initialState: serializeGameState(game),
-					playerMapping: playerMapping
-				};
-				console.log('=== BROADCASTING GAME_STARTED ===');
-				console.log('Event data:', eventData);
-				console.log('Player mapping:', playerMapping);
-				console.log('Room ID:', roomId);
-				multiplayerService.broadcastEvent(GameEventType.GAME_STARTED, eventData);
-				console.log('Broadcast complete');
-			}
-			
 			// Exit lobby mode
 			inLobby = false;
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to start game';
+		}
+	}
+
+	// HOST ONLY: Initialize game and broadcast to clients
+	function startGameAsHost(playerNames: string[]) {
+		console.log('=== HOST: STARTING GAME ===');
+		
+		// Initialize the game locally
+		startGame(playerNames);
+		
+		if (!gameState) {
+			console.error('Failed to initialize game state');
+			return;
+		}
+		
+		// Broadcast to all clients
+		const playerMapping = lobbyPlayers.map((lobbyPlayer, index) => ({
+			multiplayerId: lobbyPlayer.playerId,
+			gamePlayerIndex: index,
+			playerName: playerNames[index]
+		}));
+		
+		const eventData = {
+			players: playerNames.map((name, i) => ({ 
+				id: gameState.getPlayers()[i].id, 
+				name 
+			})),
+			initialState: serializeGameState(gameState),
+			playerMapping: playerMapping
+		};
+		
+		console.log('HOST: Broadcasting GAME_STARTED to clients');
+		console.log('Player mapping:', playerMapping);
+		multiplayerService.broadcastEvent(GameEventType.GAME_STARTED, eventData);
+	}
+
+	// CLIENT ONLY: Receive game state from host
+	function startGameAsClient(event: GameEvent) {
+		console.log('=== CLIENT: RECEIVING GAME STATE FROM HOST ===');
+		console.log('Event data:', event.data);
+		
+		if (!event.data || !event.data.initialState || !event.data.players) {
+			console.error('Invalid GAME_STARTED event data');
+			errorMessage = 'Failed to receive game state from host';
+			return;
+		}
+		
+		try {
+			const game = new GameState('game-' + Date.now());
+			
+			// Initialize with player names from event
+			const playerNames = event.data.players.map((p: any) => p.name);
+			console.log('CLIENT: Initializing game with players:', playerNames);
+			game.initializeGame(playerNames);
+			
+			// Apply the serialized state from host
+			console.log('CLIENT: Deserializing game state from host');
+			const deserializedState = deserializeGameState(event.data.initialState, game);
+			gameState = deserializedState;
+			
+			// Build player ID mapping from received data
+			if (event.data.playerMapping) {
+				playerIdToGameIndex = new Map();
+				event.data.playerMapping.forEach((mapping: any) => {
+					playerIdToGameIndex.set(mapping.multiplayerId, mapping.gamePlayerIndex);
+					console.log(`CLIENT: Mapping ${mapping.multiplayerId} -> player index ${mapping.gamePlayerIndex} (${mapping.playerName})`);
+				});
+			}
+			
+			selectedMoneyCards = [];
+			errorMessage = '';
+			updateCounter = 0;
+			inLobby = false;
+			
+			console.log('CLIENT: Game state synchronized successfully');
+		} catch (error) {
+			console.error('CLIENT: Failed to initialize game:', error);
+			errorMessage = 'Failed to sync game state: ' + (error instanceof Error ? error.message : 'Unknown error');
 		}
 	}
 	
@@ -131,7 +203,7 @@ npm <script lang="ts">
 		lobbyPlayers = players;
 		inLobby = true;
 		
-		// Setup event listeners
+		// Setup event listeners (idempotent - won't duplicate)
 		setupMultiplayerListeners();
 		
 		console.log('=== MULTIPLAYER ROOM READY ===');
@@ -140,11 +212,14 @@ npm <script lang="ts">
 		console.log('Is Host:', isHost);
 		console.log('Connected Players:', players);
 		
-		// If host, automatically start the game with connected players
+		// ONLY THE HOST starts the game immediately
+		// Clients will start when they receive GAME_STARTED event
 		if (isHostParam) {
 			const playerNames = players.map(p => p.playerName);
-			console.log('Host starting game with players:', playerNames);
-			startGame(playerNames);
+			console.log('HOST: Starting game with players:', playerNames);
+			startGameAsHost(playerNames);
+		} else {
+			console.log('CLIENT: Waiting for GAME_STARTED event from host');
 		}
 	}
 	
@@ -156,71 +231,49 @@ npm <script lang="ts">
 		}
 		
 		console.log('=== SETTING UP MULTIPLAYER LISTENERS ===');
-		console.log('Setting up listener for:', GameEventType.GAME_STARTED);
-		console.log('Current isHost:', isHost);
-		console.log('Current myPlayerId:', myPlayerId);
+		console.log('My Role - Is Host:', isHost);
+		console.log('My Player ID:', myPlayerId);
 		console.log('Multiplayer service connected:', multiplayerService.isConnected());
 		
 		listenersRegistered = true;
 		
-		// Game started event (for non-hosts)
+		// ============================================================
+		// EVENT HANDLER ARCHITECTURE
+		// ============================================================
+		// HOST: Manages authoritative game state, broadcasts to clients
+		// CLIENTS: Receive and sync state from host, broadcast their actions
+		// 
+		// Event Flow:
+		// 1. Player performs action (bid, pass, discard)
+		// 2. Action updates local state
+		// 3. Action is broadcast to all other players
+		// 4. Other players receive event and update their local state
+		// 5. If action completes auction, HOST broadcasts final state
+		// ============================================================
+		
+		// ============================================================
+		// GAME_STARTED EVENT - Client receives initial game state from host
+		// ============================================================
 		multiplayerService.on(GameEventType.GAME_STARTED, (event: GameEvent) => {
-			console.log('=== GAME_STARTED EVENT RECEIVED IN HANDLER ===');
-			console.log('Event:', event);
-			console.log('Is Host:', isHost);
-			console.log('Event Data:', event.data);
+			console.log('=== GAME_STARTED EVENT RECEIVED ===');
+			console.log('My Role - Is Host:', isHost);
+			console.log('My Player ID:', myPlayerId);
+			console.log('Event timestamp:', event.timestamp);
 			
+			// Prevent duplicate processing
+			if (!shouldProcessEvent('GAME_STARTED', event.timestamp)) {
+				return;
+			}
+			
+			// HOST: Ignore own broadcast
 			if (isHost) {
-				console.log('Host received own GAME_STARTED broadcast, ignoring');
+				console.log('HOST: Ignoring own GAME_STARTED broadcast');
 				return;
 			}
 			
-			if (!event.data) {
-				console.error('GAME_STARTED event missing data');
-				errorMessage = 'Invalid game start event';
-				return;
-			}
-			
-			if (!event.data.initialState) {
-				console.error('GAME_STARTED event missing initialState');
-				errorMessage = 'Invalid game start event - missing state';
-				return;
-			}
-			
-			if (!event.data.players) {
-				console.error('GAME_STARTED event missing players');
-				errorMessage = 'Invalid game start event - missing players';
-				return;
-			}
-			
-			console.log('=== PROCESSING GAME START ===');
-			try {
-				const game = new GameState('game-' + Date.now());
-				// Initialize with player names from event
-				const playerNames = event.data.players.map((p: any) => p.name);
-				console.log('Initializing game with players:', playerNames);
-				game.initializeGame(playerNames);
-				
-				// Apply the serialized state from host
-				console.log('Deserializing game state...');
-				const deserializedState = deserializeGameState(event.data.initialState, game);
-				gameState = deserializedState;
-				console.log('Game state set successfully');
-				
-				// Build player ID mapping from received data
-				if (event.data.playerMapping) {
-					playerIdToGameIndex = new Map();
-					event.data.playerMapping.forEach((mapping: any) => {
-						playerIdToGameIndex.set(mapping.multiplayerId, mapping.gamePlayerIndex);
-						console.log(`Mapping ${mapping.multiplayerId} -> player index ${mapping.gamePlayerIndex} (${mapping.playerName})`);
-					});
-				}
-				
-				updateCounter++;
-			} catch (error) {
-				console.error('Failed to deserialize game state:', error);
-				errorMessage = 'Failed to sync game state: ' + (error instanceof Error ? error.message : 'Unknown error');
-			}
+			// CLIENT: Initialize game from host's state
+			console.log('CLIENT: Processing GAME_STARTED event');
+			startGameAsClient(event);
 		});
 		
 		console.log('GAME_STARTED listener registered');
@@ -242,22 +295,34 @@ npm <script lang="ts">
 			}
 		});
 		
-		// Bid placed event
+		// ============================================================
+		// BID_PLACED EVENT - All players (except sender) update their local state
+		// ============================================================
 		multiplayerService.on(GameEventType.BID_PLACED, (event: GameEvent) => {
-			console.log('=== RECEIVED BID ===', event.data);
-			if (!gameState) return;
+			console.log('=== BID_PLACED EVENT RECEIVED ===');
+			console.log('From player:', event.data?.playerName);
+			console.log('My Player ID:', myPlayerId);
 			
-			// Skip if it's our own bid - check multiplayer player ID
+			if (!gameState) {
+				console.warn('Received BID_PLACED but no game state');
+				return;
+			}
+			
+			// Skip if it's our own bid
 			if (event.data.multiplayerPlayerId === myPlayerId) {
 				console.log('Skipping own bid event');
 				return;
 			}
 			
+			console.log('Processing bid from other player');
 			try {
 				const player = gameState.getPlayers().find(p => p.id === event.data.playerId);
 				const auction = gameState.getCurrentAuction();
 				
-				if (!player || !auction) return;
+				if (!player || !auction) {
+					console.error('Invalid player or auction state');
+					return;
+				}
 				
 				// Find the money cards
 				const moneyCards = player.getMoneyHand().filter(c => 
@@ -265,9 +330,11 @@ npm <script lang="ts">
 				) as MoneyCard[];
 				
 				const result = auction.processBid(player, moneyCards);
+				console.log('Bid processed, result:', result);
 				
 				if (result === AuctionResult.COMPLETE) {
-					completeAuction();
+					console.log('Auction complete - waiting for host to broadcast final state');
+					updateCounter++;
 				} else {
 					// Move to next player
 					let nextIndex = (gameState.getCurrentPlayerIndex() + 1) % gameState.getPlayers().length;
@@ -277,6 +344,7 @@ npm <script lang="ts">
 						attempts++;
 					}
 					gameState.setCurrentPlayerIndex(nextIndex);
+					console.log('Next player index:', nextIndex);
 					updateCounter++;
 				}
 			} catch (error) {
@@ -284,27 +352,41 @@ npm <script lang="ts">
 			}
 		});
 		
-		// Pass event
+		// ============================================================
+		// PASS_AUCTION EVENT - All players (except sender) update their local state
+		// ============================================================
 		multiplayerService.on(GameEventType.PASS_AUCTION, (event: GameEvent) => {
-			console.log('=== RECEIVED PASS ===', event.data);
-			if (!gameState) return;
+			console.log('=== PASS_AUCTION EVENT RECEIVED ===');
+			console.log('From player:', event.data?.playerName);
+			console.log('My Player ID:', myPlayerId);
 			
-			// Skip if it's our own pass - check multiplayer player ID
+			if (!gameState) {
+				console.warn('Received PASS_AUCTION but no game state');
+				return;
+			}
+			
+			// Skip if it's our own pass
 			if (event.data.multiplayerPlayerId === myPlayerId) {
 				console.log('Skipping own pass event');
 				return;
 			}
 			
+			console.log('Processing pass from other player');
 			try {
 				const player = gameState.getPlayers().find(p => p.id === event.data.playerId);
 				const auction = gameState.getCurrentAuction();
 				
-				if (!player || !auction) return;
+				if (!player || !auction) {
+					console.error('Invalid player or auction state');
+					return;
+				}
 				
 				const result = auction.processPass(player);
+				console.log('Pass processed, result:', result);
 				
 				if (result === AuctionResult.COMPLETE) {
-					completeAuction();
+					console.log('Auction complete - waiting for host to broadcast final state');
+					updateCounter++;
 				} else {
 					// Move to next player
 					let nextIndex = (gameState.getCurrentPlayerIndex() + 1) % gameState.getPlayers().length;
@@ -312,6 +394,7 @@ npm <script lang="ts">
 						nextIndex = (nextIndex + 1) % gameState.getPlayers().length;
 					}
 					gameState.setCurrentPlayerIndex(nextIndex);
+					console.log('Next player index:', nextIndex);
 					updateCounter++;
 				}
 			} catch (error) {
@@ -319,39 +402,73 @@ npm <script lang="ts">
 			}
 		});
 		
-		// Luxury discard event
+		// ============================================================
+		// LUXURY_DISCARDED EVENT - All players (except sender) update their local state
+		// ============================================================
 		multiplayerService.on(GameEventType.LUXURY_DISCARDED, (event: GameEvent) => {
-			console.log('=== RECEIVED LUXURY DISCARD ===', event.data);
-			if (!gameState) return;
+			console.log('=== LUXURY_DISCARDED EVENT RECEIVED ===');
+			console.log('From player:', event.data?.playerName);
+			console.log('My Player ID:', myPlayerId);
+			
+			if (!gameState) {
+				console.warn('Received LUXURY_DISCARDED but no game state');
+				return;
+			}
 			
 			// Skip if it's our own discard
-			if (event.data.playerId === myPlayerId) return;
+			if (event.data.multiplayerPlayerId === myPlayerId) {
+				console.log('Skipping own luxury discard event');
+				return;
+			}
 			
+			console.log('Processing luxury discard from other player');
 			try {
 				gameState.handleLuxuryDiscard(event.data.playerId, event.data.cardId);
 				showLuxuryDiscard = false;
-				
-				if (gameState.getCurrentPhase() !== GamePhase.SCORING) {
-					gameState.startNewRound();
-				}
-				
+				console.log('Luxury discard processed - waiting for host to broadcast new round');
 				updateCounter++;
 			} catch (error) {
 				console.error('Failed to process remote luxury discard:', error);
 			}
 		});
 		
-		// Round started event (for synchronization)
-		multiplayerService.on(GameEventType.ROUND_STARTED, (event: GameEvent) => {
-			console.log('=== RECEIVED ROUND START ===', event.data);
-			// This is mainly for logging/debugging
-			// The state should already be updated by the action that triggered it
-		});
-		
-		// Auction complete event (for synchronization)
+		// ============================================================
+		// AUCTION_COMPLETE EVENT - HOST broadcasts final state, CLIENTS sync
+		// ============================================================
 		multiplayerService.on(GameEventType.AUCTION_COMPLETE, (event: GameEvent) => {
-			console.log('=== RECEIVED AUCTION COMPLETE ===', event.data);
-			// This is mainly for logging/debugging
+			console.log('=== AUCTION_COMPLETE EVENT RECEIVED ===');
+			console.log('My Role - Is Host:', isHost);
+			
+			if (!gameState) {
+				console.warn('Received AUCTION_COMPLETE but no game state');
+				return;
+			}
+			
+			// HOST: Ignore own broadcast
+			if (isHost) {
+				console.log('HOST: Ignoring own AUCTION_COMPLETE broadcast');
+				return;
+			}
+			
+			// CLIENT: Sync game state from host
+			console.log('CLIENT: Synchronizing game state from host');
+			try {
+				const newState = deserializeGameState(event.data.gameState, gameState);
+				gameState = newState;
+				
+				// Handle luxury discard if needed
+				if (event.data.needsLuxuryDiscard) {
+					const winner = gameState.getPlayers().find(p => p.id === event.data.winnerId);
+					if (winner && winner.getLuxuryCards().length > 0) {
+						showLuxuryDiscard = true;
+					}
+				}
+				
+				updateCounter++;
+				console.log('Game state synchronized after auction completion');
+			} catch (error) {
+				console.error('Failed to sync game state after auction:', error);
+			}
 		});
 	}
 
@@ -497,6 +614,17 @@ npm <script lang="ts">
 	function completeAuction() {
 		if (!gameState) return;
 
+		console.log('=== COMPLETING AUCTION ===');
+		console.log('Is host:', isHost);
+		
+		// Safety check: non-hosts should not complete auctions in multiplayer
+		// They should wait for the host to broadcast the new state
+		if (!isHost) {
+			console.log('Non-host skipping auction completion, waiting for host broadcast');
+			updateCounter++;
+			return;
+		}
+		
 		gameState.completeAuction();
 
 		// Check if winner needs to discard luxury card
@@ -505,11 +633,30 @@ npm <script lang="ts">
 			showLuxuryDiscard = true;
 			// Force reactivity update
 			updateCounter++;
-		} else {
-			// Start next round
-			if (gameState.getCurrentPhase() !== GamePhase.SCORING) {
-				gameState.startNewRound();
+			
+			// Host broadcasts luxury discard needed state
+			if (isHost) {
+				multiplayerService.broadcastEvent(GameEventType.AUCTION_COMPLETE, {
+					gameState: serializeGameState(gameState),
+					needsLuxuryDiscard: true,
+					winnerId: winner.id
+				});
 			}
+		} else {
+			// Only host starts next round - remote clients wait for broadcast
+			if (isHost) {
+				// Start next round
+				if (gameState.getCurrentPhase() !== GamePhase.SCORING) {
+					gameState.startNewRound();
+				}
+				
+				// Broadcast the new round state
+				multiplayerService.broadcastEvent(GameEventType.AUCTION_COMPLETE, {
+					gameState: serializeGameState(gameState),
+					needsLuxuryDiscard: false
+				});
+			}
+			
 			// Force reactivity update
 			updateCounter++;
 		}
@@ -520,8 +667,10 @@ npm <script lang="ts">
 
 		const playerWithPending = gameState.getPlayers().find(p => p.getPendingLuxuryDiscard());
 		if (playerWithPending) {
-			// Only allow the player who needs to discard
-			if (playerWithPending.id !== myPlayerId) {
+			// Only allow the player who needs to discard (using isMyTurn logic)
+			const myGameIndex = playerIdToGameIndex.get(myPlayerId);
+			const playerGameIndex = gameState.getPlayers().findIndex(p => p.id === playerWithPending.id);
+			if (myGameIndex !== playerGameIndex) {
 				errorMessage = 'Not your turn to discard!';
 				return;
 			}
@@ -531,6 +680,7 @@ npm <script lang="ts">
 			// Broadcast luxury discard
 			multiplayerService.broadcastEvent(GameEventType.LUXURY_DISCARDED, {
 				playerId: playerWithPending.id,
+				multiplayerPlayerId: myPlayerId,
 				playerName: playerWithPending.name,
 				cardId
 			});
@@ -543,8 +693,16 @@ npm <script lang="ts">
 			gameState.startNewRound();
 		}
 
-		// Force reactivity update
+		// Force reactivity update - also broadcast new state if host
 		updateCounter++;
+		
+		// If host, broadcast the new round state via AUCTION_COMPLETE
+		if (isHost && gameState.getCurrentPhase() !== GamePhase.SCORING) {
+			multiplayerService.broadcastEvent(GameEventType.AUCTION_COMPLETE, {
+				gameState: serializeGameState(gameState),
+				needsLuxuryDiscard: false
+			});
+		}
 	}
 
 	function newGame() {
