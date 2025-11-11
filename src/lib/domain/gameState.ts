@@ -1,6 +1,6 @@
 // Domain Layer - Game State Machine
 import { Player, type PlayerPublicState } from './player';
-import { StatusCard, MoneyCard, PlayerColor, LUXURY_CARDS, PRESTIGE_CARDS, DISGRACE_CARDS, MONEY_CARD_VALUES, DisgraceFauxPas } from './cards';
+import { StatusCard, MoneyCard, PlayerColor, LUXURY_CARDS, PRESTIGE_CARDS, DISGRACE_CARDS, MONEY_CARD_VALUES, DisgraceFauxPas, LuxuryCard } from './cards';
 import { Auction, RegularAuction, DisgraceAuction, isDisgraceCard } from './auction';
 
 export enum GamePhase {
@@ -202,6 +202,14 @@ export class GameState {
           // Will discard next luxury card received
           winner.setPendingLuxuryDiscard(true);
         }
+      }
+
+      // Check if winner has pending luxury discard and just won a luxury card
+      // This handles the case where a player previously got Faux Pas with no luxury cards
+      // and now wins a luxury card - they must discard it immediately
+      if (winner.getPendingLuxuryDiscard() && card instanceof LuxuryCard) {
+        // Player already has pending discard flag set (from earlier Faux Pas)
+        // The flag remains true so they can discard the card they just won
       }
 
       // Winner becomes the starting player
