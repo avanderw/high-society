@@ -56,6 +56,7 @@ export interface SerializedGameState {
 	revealedCards: SerializedStatusCard[];
 	currentAuction: SerializedAuction | null;
 	gameEndTriggerCount: number;
+	remainingStatusCards: number;
 	phase: GamePhase;
 	currentPlayerIndex: number;
 }
@@ -125,6 +126,7 @@ export function serializeAuction(auction: Auction): SerializedAuction {
 
 export function serializeGameState(gameState: GameState): SerializedGameState {
 	const currentAuction = gameState.getCurrentAuction();
+	const publicState = gameState.getPublicState();
 	
 	return {
 		gameId: gameState.gameId,
@@ -132,7 +134,8 @@ export function serializeGameState(gameState: GameState): SerializedGameState {
 		statusDeck: [], // Don't serialize the deck to prevent cheating
 		revealedCards: [], // Don't need to sync revealed cards
 		currentAuction: currentAuction ? serializeAuction(currentAuction) : null,
-		gameEndTriggerCount: gameState.getPublicState().gameEndTriggerCount,
+		gameEndTriggerCount: publicState.gameEndTriggerCount,
+		remainingStatusCards: publicState.remainingStatusCards,
 		phase: gameState.getCurrentPhase(),
 		currentPlayerIndex: gameState.getCurrentPlayerIndex()
 	};
@@ -223,6 +226,13 @@ export function deserializeGameState(data: SerializedGameState, originalGameStat
 	(gameState as any).phase = data.phase;
 	(gameState as any).currentPlayerIndex = data.currentPlayerIndex;
 	
+	// Restore deck state - we don't have the actual cards but we need the count
+	// Create a dummy deck with the correct length to maintain the remainingStatusCards count
+	if (data.remainingStatusCards !== undefined) {
+		const dummyDeck = new Array(data.remainingStatusCards).fill(null);
+		(gameState as any).statusDeck = dummyDeck;
+	}
+	
 	return gameState;
 }
 
@@ -257,6 +267,12 @@ export function applyPartialStateUpdate(
 	
 	if (updates.gameEndTriggerCount !== undefined) {
 		(currentState as any).gameEndTriggerCount = updates.gameEndTriggerCount;
+	}
+	
+	if (updates.remainingStatusCards !== undefined) {
+		// Update the dummy deck length to reflect the correct remaining cards count
+		const dummyDeck = new Array(updates.remainingStatusCards).fill(null);
+		(currentState as any).statusDeck = dummyDeck;
 	}
 	
 	return currentState;

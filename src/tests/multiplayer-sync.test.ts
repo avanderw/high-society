@@ -420,4 +420,91 @@ describe('Multiplayer Event Synchronization', () => {
 		// Should be 10000 if deserialization worked
 		expect(updatedPlayerB.getCurrentBidAmount()).toBe(10000);
 	});
+
+	it('should sync gameEndTriggerCount and remainingStatusCards correctly', async () => {
+		// This test verifies the fix for the bug where clients show wrong trigger count
+		// and remaining cards count
+		
+		const { serializeGameState, deserializeGameState } = await import('$lib/multiplayer/serialization');
+		
+		// Setup host game with a known seed
+		const seed = 99999;
+		const hostGame = new GameState('host-game', seed);
+		hostGame.initializeGame(['A', 'B', 'C']);
+		
+		// Check initial state
+		console.log('\n=== INITIAL STATE ===');
+		let publicState = hostGame.getPublicState();
+		console.log(`Host - Triggers: ${publicState.gameEndTriggerCount}, Cards Left: ${publicState.remainingStatusCards}`);
+		expect(publicState.gameEndTriggerCount).toBe(0);
+		expect(publicState.remainingStatusCards).toBe(16); // Full deck
+		
+		// Start first round
+		hostGame.startNewRound();
+		
+		console.log('\n=== AFTER ROUND 1 STARTS ===');
+		publicState = hostGame.getPublicState();
+		console.log(`Host - Triggers: ${publicState.gameEndTriggerCount}, Cards Left: ${publicState.remainingStatusCards}`);
+		console.log(`Current card: ${publicState.currentCard?.name}, Is trigger: ${publicState.currentCard?.isGameEndTrigger}`);
+		
+		// After drawing one card
+		const round1Triggers = publicState.gameEndTriggerCount;
+		const round1CardsLeft = publicState.remainingStatusCards;
+		expect(round1CardsLeft).toBe(15); // One card drawn
+		
+		// Serialize and send to client
+		const round1State = serializeGameState(hostGame);
+		console.log(`Serialized - Triggers: ${round1State.gameEndTriggerCount}, Cards Left: ${round1State.remainingStatusCards}`);
+		
+		// CRITICAL: Verify serialization includes these fields
+		expect(round1State.gameEndTriggerCount).toBe(round1Triggers);
+		expect(round1State.remainingStatusCards).toBe(round1CardsLeft);
+		
+		// Client receives and deserializes
+		const clientGame = deserializeGameState(round1State);
+		const clientPublicState = clientGame.getPublicState();
+		
+		console.log(`Client after deserialization - Triggers: ${clientPublicState.gameEndTriggerCount}, Cards Left: ${clientPublicState.remainingStatusCards}`);
+		
+		// CRITICAL: Client should see the same values as host
+		expect(clientPublicState.gameEndTriggerCount).toBe(round1Triggers);
+		expect(clientPublicState.remainingStatusCards).toBe(round1CardsLeft);
+		
+		// Complete round 1 auction on host
+		const [playerA, playerB, playerC] = hostGame.getPlayers();
+		const auction1 = hostGame.getCurrentAuction()!;
+		auction1.processBid(playerA, [playerA.getMoneyHand().find((c: MoneyCard) => c.value === 1000)!]);
+		auction1.processPass(playerB);
+		auction1.processPass(playerC);
+		hostGame.completeAuction();
+		
+		// Start round 2
+		hostGame.startNewRound();
+		
+		console.log('\n=== AFTER ROUND 2 STARTS ===');
+		publicState = hostGame.getPublicState();
+		console.log(`Host - Triggers: ${publicState.gameEndTriggerCount}, Cards Left: ${publicState.remainingStatusCards}`);
+		console.log(`Current card: ${publicState.currentCard?.name}, Is trigger: ${publicState.currentCard?.isGameEndTrigger}`);
+		
+		const round2Triggers = publicState.gameEndTriggerCount;
+		const round2CardsLeft = publicState.remainingStatusCards;
+		expect(round2CardsLeft).toBe(14); // Two cards drawn
+		
+		// Serialize and send to client
+		const round2State = serializeGameState(hostGame);
+		console.log(`Serialized - Triggers: ${round2State.gameEndTriggerCount}, Cards Left: ${round2State.remainingStatusCards}`);
+		
+		expect(round2State.gameEndTriggerCount).toBe(round2Triggers);
+		expect(round2State.remainingStatusCards).toBe(round2CardsLeft);
+		
+		// Client deserializes round 2 state
+		const clientGame2 = deserializeGameState(round2State);
+		const clientPublicState2 = clientGame2.getPublicState();
+		
+		console.log(`Client after round 2 deserialization - Triggers: ${clientPublicState2.gameEndTriggerCount}, Cards Left: ${clientPublicState2.remainingStatusCards}`);
+		
+		// CRITICAL: Client should see updated values matching host
+		expect(clientPublicState2.gameEndTriggerCount).toBe(round2Triggers);
+		expect(clientPublicState2.remainingStatusCards).toBe(round2CardsLeft);
+	});
 });
