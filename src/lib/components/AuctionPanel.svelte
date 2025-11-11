@@ -22,10 +22,17 @@
 		auction?.getActivePlayers().has(playerId) ?? false
 	);
 
-	const currentBid = $derived(updateKey >= 0 ? auction?.getCurrentHighestBid() ?? 0 : 0);
+	// Force reactivity by ensuring derived depends on updateKey
+	const currentBid = $derived.by(() => {
+		const _ = updateKey;
+		return auction?.getCurrentHighestBid() ?? 0;
+	});
 	// Use localPlayer for bid calculations if available, otherwise fall back to currentPlayer
 	const playerForBid = $derived(localPlayer ?? currentPlayer);
-	const playerCurrentBid = $derived(updateKey >= 0 ? playerForBid.getCurrentBidAmount() : 0);
+	const playerCurrentBid = $derived.by(() => {
+		const _ = updateKey;
+		return playerForBid.getCurrentBidAmount();
+	});
 	const newTotalBid = $derived(playerCurrentBid + selectedTotal);
 	const canBid = $derived(newTotalBid > currentBid);
 </script>

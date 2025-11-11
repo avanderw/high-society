@@ -11,6 +11,7 @@
 	import StatusDisplay from '$lib/components/StatusDisplay.svelte';
 	import ScoreBoard from '$lib/components/ScoreBoard.svelte';
 	import LuxuryDiscardModal from '$lib/components/LuxuryDiscardModal.svelte';
+	import AuctionResultModal from '$lib/components/AuctionResultModal.svelte';
 	import UpdatePrompt from '$lib/components/UpdatePrompt.svelte';
 	
 	import { getMultiplayerService } from '$lib/multiplayer/service';
@@ -39,6 +40,8 @@
 	let selectedMoneyCards = $state<string[]>([]);
 	let errorMessage = $state<string>('');
 	let showLuxuryDiscard = $state(false);
+	let showAuctionResult = $state(false);
+	let auctionResultData = $state<{ winner: any; card: any; winningBid: number } | null>(null);
 	let updateCounter = $state(0); // Force update counter
 	
 	// Derived state to force reactivity - all depend on updateCounter
@@ -699,19 +702,36 @@
 		console.log('=== COMPLETING AUCTION ===');
 		console.log('Is host:', isHost);
 		
+		// Capture auction result before completing
+		const auction = gameState.getCurrentAuction();
+		const winner = auction?.getWinner() ?? null;
+		const card = auction?.getCard();
+		const winningBid = winner?.getCurrentBidAmount() ?? 0;
+		
 		// Safety check: non-hosts should not complete auctions in multiplayer
 		// They should wait for the host to broadcast the new state
 		if (!isHost) {
 			console.log('Non-host skipping auction completion, waiting for host broadcast');
+			// Show result for non-hosts too
+			if (card) {
+				auctionResultData = { winner, card, winningBid };
+				showAuctionResult = true;
+			}
 			updateCounter++;
 			return;
+		}
+		
+		// Show auction result modal
+		if (card) {
+			auctionResultData = { winner, card, winningBid };
+			showAuctionResult = true;
 		}
 		
 		gameState.completeAuction();
 
 		// Check if winner needs to discard luxury card
-		const winner = gameState.getPlayers().find(p => p.getPendingLuxuryDiscard());
-		if (winner && winner.getLuxuryCards().length > 0) {
+		const winnerWithPending = gameState.getPlayers().find(p => p.getPendingLuxuryDiscard());
+		if (winnerWithPending && winnerWithPending.getLuxuryCards().length > 0) {
 			showLuxuryDiscard = true;
 			// Force reactivity update
 			updateCounter++;
@@ -721,7 +741,7 @@
 				multiplayerService.broadcastEvent(GameEventType.AUCTION_COMPLETE, {
 					gameState: serializeGameState(gameState),
 					needsLuxuryDiscard: true,
-					winnerId: winner.id
+					winnerId: winnerWithPending.id
 				});
 			}
 		} else {
@@ -797,6 +817,8 @@
 		selectedMoneyCards = [];
 		errorMessage = '';
 		showLuxuryDiscard = false;
+		showAuctionResult = false;
+		auctionResultData = null;
 		updateCounter = 0;
 		roomId = '';
 		myPlayerId = '';
@@ -806,6 +828,11 @@
 		lobbyPlayers = [];
 		restartRequested = false;
 		playersReady = new Set();
+	}
+
+	function closeAuctionResult() {
+		showAuctionResult = false;
+		auctionResultData = null;
 	}
 
 	function handlePlayAgain() {
@@ -1075,6 +1102,15 @@
 					{/if}
 				{/each}
 			{/if}
+
+			{#if showAuctionResult && auctionResultData}
+				<AuctionResultModal 
+					winner={auctionResultData.winner}
+					card={auctionResultData.card}
+					winningBid={auctionResultData.winningBid}
+					onClose={closeAuctionResult}
+				/>
+			{/if}
 		</div>
 	{/if}
 </main>
@@ -1197,13 +1233,21 @@
 
 	.room-code-large {
 		display: block;
-		font-size: 1.5rem;
+		font-size: clamp(1.25rem, 4vw, 1.5rem);
 		font-weight: bold;
 		font-family: var(--pico-font-family-monospace);
 		letter-spacing: 0.1em;
-		padding: 0.5rem;
+		padding: 1rem;
 		background-color: var(--pico-code-background-color);
 		border-radius: var(--pico-border-radius);
+		user-select: all;
+		word-break: break-all;
+		cursor: pointer;
+	}
+
+	.room-code-large:active {
+		background-color: var(--pico-primary);
+		color: var(--pico-primary-inverse);
 	}
 
 	.connection-indicator {

@@ -11,8 +11,17 @@
 
 	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true }: Props = $props();
 
-	const moneyHand = $derived(updateKey >= 0 ? player.getMoneyHand() : []);
-	const playedMoney = $derived(updateKey >= 0 ? player.getPlayedMoney() : []);
+	// Sort money cards by value (descending)
+	const moneyHand = $derived(
+		updateKey >= 0 
+			? [...player.getMoneyHand()].sort((a, b) => b.value - a.value)
+			: []
+	);
+	const playedMoney = $derived(
+		updateKey >= 0 
+			? [...player.getPlayedMoney()].sort((a, b) => b.value - a.value)
+			: []
+	);
 	const totalSelected = $derived(
 		selectedCards.reduce((sum, id) => {
 			const card = moneyHand.find(c => c.id === id);

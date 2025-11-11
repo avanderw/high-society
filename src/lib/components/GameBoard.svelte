@@ -9,7 +9,12 @@
 
 	let { gameState, updateKey = 0 }: Props = $props();
 
-	const publicState = $derived(updateKey >= 0 ? gameState.getPublicState() : gameState.getPublicState());
+	// Force reactivity by ensuring derived depends on updateKey
+	const publicState = $derived.by(() => {
+		// This forces the derived to re-run when updateKey changes
+		const _ = updateKey;
+		return gameState.getPublicState();
+	});
 	const currentCard = $derived(publicState.currentCard);
 	const phase = $derived(publicState.phase);
 </script>
