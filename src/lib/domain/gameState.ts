@@ -28,10 +28,26 @@ export class GameContext {
   ) {}
 }
 
-function shuffleArray<T>(array: T[]): T[] {
+// Simple seeded random number generator (mulberry32)
+class SeededRandom {
+  private seed: number;
+
+  constructor(seed: number) {
+    this.seed = seed;
+  }
+
+  next(): number {
+    let t = this.seed += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+
+function shuffleArray<T>(array: T[], rng?: SeededRandom): T[] {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor((rng ? rng.next() : Math.random()) * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
@@ -45,10 +61,16 @@ export class GameState {
   private gameEndTriggerCount = 0;
   private phase: GamePhase = GamePhase.SETUP;
   private currentPlayerIndex = 0;
+  private rng?: SeededRandom;
 
   constructor(
-    public readonly gameId: string
-  ) {}
+    public readonly gameId: string,
+    seed?: number
+  ) {
+    if (seed !== undefined) {
+      this.rng = new SeededRandom(seed);
+    }
+  }
 
   // Initialization
   initializeGame(playerNames: string[]): void {
@@ -72,19 +94,26 @@ export class GameState {
 
     // Create and shuffle status deck
     const deck = [...LUXURY_CARDS, ...PRESTIGE_CARDS, ...DISGRACE_CARDS];
-    this.statusDeck = shuffleArray(deck);
+    this.statusDeck = shuffleArray(deck, this.rng);
 
     this.phase = GamePhase.AUCTION;
   }
 
   // Game progression
   startNewRound(): void {
+    // If game is already over, do nothing
+    if (this.phase === GamePhase.SCORING || this.phase === GamePhase.FINISHED) {
+      return;
+    }
+    
+    const nextCard = this.drawStatusCard();
+    
+    // Check if game should end AFTER drawing (4th trigger ends game immediately)
     if (this.isGameEnd()) {
       this.phase = GamePhase.SCORING;
       return;
     }
 
-    const nextCard = this.drawStatusCard();
     this.currentAuction = this.createAuction(nextCard);
 
     const auctionType = isDisgraceCard(nextCard)

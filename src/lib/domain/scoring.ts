@@ -87,8 +87,11 @@ export class GameScoringService {
 
   private castOutPoorestPlayers(players: Player[]): Player[] {
     if (players.length === 0) return [];
+    if (players.length === 1) return players; // Can't cast out the only player
     const minMoney = Math.min(...players.map(p => p.getTotalRemainingMoney()));
-    return players.filter(player => player.getTotalRemainingMoney() > minMoney);
+    const eligible = players.filter(player => player.getTotalRemainingMoney() > minMoney);
+    // If everyone has the same money (tie for poorest), keep all players
+    return eligible.length === 0 ? players : eligible;
   }
 
   private sortByGameRules(rankings: PlayerRanking[]): PlayerRanking[] {
