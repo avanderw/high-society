@@ -83,6 +83,7 @@
 		cursor: pointer;
 		padding: 0.5rem;
 		margin: 0.25rem 0;
+		font-size: clamp(0.875rem, 2vw, 1rem);
 	}
 
 	summary:hover {
@@ -90,8 +91,14 @@
 	}
 
 	.status-cards {
-		padding: 1rem;
+		padding: 0.5rem;
 		margin: 0.5rem 0;
+	}
+
+	@media (min-width: 768px) {
+		.status-cards {
+			padding: 1rem;
+		}
 	}
 
 	.card-list {
@@ -101,15 +108,22 @@
 	}
 
 	.status-card-mini {
-		padding: 0.5rem 1rem;
+		padding: 0.5rem 0.75rem;
 		border: 2px solid var(--pico-primary);
 		border-radius: var(--pico-border-radius);
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		gap: 0.25rem;
-		min-width: 100px;
+		min-width: min(100px, 25vw);
 		background: var(--pico-card-background-color);
+	}
+
+	@media (min-width: 768px) {
+		.status-card-mini {
+			padding: 0.5rem 1rem;
+			min-width: 100px;
+		}
 	}
 
 	.status-card-mini.luxury {
@@ -127,11 +141,27 @@
 	}
 
 	.status-card-mini strong {
-		font-size: 0.875rem;
+		font-size: clamp(0.75rem, 2vw, 0.875rem);
+		text-align: center;
 	}
 
 	.status-card-mini span {
-		font-size: 1.25rem;
+		font-size: clamp(1rem, 3vw, 1.25rem);
 		font-weight: bold;
+	}
+
+	small {
+		font-size: clamp(0.75rem, 1.8vw, 0.875rem);
+	}
+
+	mark {
+		padding: 0.125rem 0.25rem;
+		font-size: clamp(0.65rem, 1.8vw, 0.75rem);
+	}
+
+	@media (min-width: 768px) {
+		mark {
+			padding: 0.25rem 0.5rem;
+		}
 	}
 </style>

@@ -1,11 +1,10 @@
-﻿<script lang="ts">
+<script lang="ts">
 	import { GameState, GamePhase } from '$lib/domain/gameState';
 	import { GameScoringService } from '$lib/domain/scoring';
 	import { AuctionResult } from '$lib/domain/auction';
 	import type { MoneyCard } from '$lib/domain/cards';
 	
 	import MultiplayerSetup from '$lib/components/MultiplayerSetup.svelte';
-	import GameBoard from '$lib/components/GameBoard.svelte';
 	import AuctionPanel from '$lib/components/AuctionPanel.svelte';
 	import PlayerHand from '$lib/components/PlayerHand.svelte';
 	import StatusDisplay from '$lib/components/StatusDisplay.svelte';
@@ -13,6 +12,8 @@
 	import LuxuryDiscardModal from '$lib/components/LuxuryDiscardModal.svelte';
 	import AuctionResultModal from '$lib/components/AuctionResultModal.svelte';
 	import UpdatePrompt from '$lib/components/UpdatePrompt.svelte';
+	
+	import { Target, Clock, Wifi, WifiOff } from 'lucide-svelte';
 	
 	import { getMultiplayerService } from '$lib/multiplayer/service';
 	import { GameEventType, type GameEvent } from '$lib/multiplayer/events';
@@ -47,6 +48,7 @@
 	// Derived state to force reactivity - all depend on updateCounter
 	const currentPhase = $derived(updateCounter >= 0 ? gameState?.getCurrentPhase() : undefined);
 	const currentAuction = $derived(updateCounter >= 0 ? gameState?.getCurrentAuction() : null);
+	const currentCard = $derived(updateCounter >= 0 ? gameState?.getPublicState().currentCard : null);
 	const currentPlayerIndex = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayerIndex() : -1);
 	const currentPlayerObj = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayer() : undefined);
 	const allPlayers = $derived(updateCounter >= 0 ? gameState?.getPlayers() ?? [] : []);
@@ -61,10 +63,15 @@
 	
 	// Check if it's my turn based on multiplayer player ID mapping
 	const isMyTurn = $derived.by(() => {
-		if (!myPlayerId || currentPlayerIndex === undefined || currentPlayerIndex < 0) return false;
+		// Explicitly depend on updateCounter to ensure reactivity
+		const _ = updateCounter;
+		if (!myPlayerId || currentPlayerIndex === undefined || currentPlayerIndex < 0) {
+			console.log(`Turn check: EARLY EXIT - myPlayerId=${myPlayerId}, currentPlayerIndex=${currentPlayerIndex}`);
+			return false;
+		}
 		const myGameIndex = playerIdToGameIndex.get(myPlayerId);
 		const result = myGameIndex === currentPlayerIndex;
-		console.log(`Turn check: myPlayerId=${myPlayerId}, myGameIndex=${myGameIndex}, currentPlayerIndex=${currentPlayerIndex}, isMyTurn=${result}`);
+		console.log(`Turn check [counter=${updateCounter}]: myPlayerId=${myPlayerId}, myGameIndex=${myGameIndex}, currentPlayerIndex=${currentPlayerIndex}, currentPlayer=${gameState?.getCurrentPlayer()?.name}, isMyTurn=${result}`);
 		return result;
 	});
 
@@ -900,9 +907,47 @@
 <UpdatePrompt />
 
 <main class="container">
-	<header>
-		<h1>High Society</h1>
-		<p>Online Multiplayer Card Game</p>
+	<header class="main-header">
+		<div class="header-content">
+			<div class="header-left">
+				<h1>High Society</h1>
+				{#if !gameState}
+					<p class="tagline">Online Multiplayer Card Game</p>
+				{/if}
+			</div>
+			{#if gameState && roomId}
+				<div class="header-center">
+					{#if currentPlayerObj}
+						{#key `${currentPlayerIndex}-${isMyTurn}`}
+							{#if isMyTurn}
+								<div class="turn-status your-turn">
+									<Target size={16} class="turn-icon" />
+									<span class="turn-text">Your Turn</span>
+								</div>
+							{:else}
+								<div class="turn-status waiting">
+									<Clock size={16} class="turn-icon" />
+									<span class="turn-text">{currentPlayerObj.name}</span>
+								</div>
+							{/if}
+						{/key}
+					{/if}
+				</div>
+				<div class="header-right">
+					<div class="status-group">
+						<span class="room-info">Room: <strong>{roomId}</strong></span>
+						<span class="connection-icon {multiplayerService.isConnected() ? 'connected' : 'disconnected'}"
+						      title={multiplayerService.isConnected() ? 'Connected to Server' : 'Disconnected from Server'}>
+							{#if multiplayerService.isConnected()}
+								<Wifi size={16} />
+							{:else}
+								<WifiOff size={16} />
+							{/if}
+						</span>
+					</div>
+				</div>
+			{/if}
+		</div>
 	</header>
 
 	{#if !gameState && !roomId}
@@ -923,9 +968,9 @@
 
 				<div class="connection-indicator">
 					{#if multiplayerService.isConnected()}
-						<span class="status-badge connected">🟢 Connected to Server</span>
+						<span class="status-badge connected">?? Connected to Server</span>
 					{:else}
-						<span class="status-badge disconnected">🔴 Disconnected</span>
+						<span class="status-badge disconnected">?? Disconnected</span>
 					{/if}
 				</div>
 			</div>
@@ -963,7 +1008,7 @@
 				</div>
 			{:else}
 				<div class="waiting-message">
-					<p>⏳ Waiting for the host to start the game...</p>
+					<p>? Waiting for the host to start the game...</p>
 					<progress></progress>
 				</div>
 			{/if}
@@ -977,7 +1022,7 @@
 			<!-- Restart lobby screen -->
 			<article class="restart-lobby">
 				<header>
-					<h2>🔄 Play Again?</h2>
+					<h2>?? Play Again?</h2>
 				</header>
 
 				<div class="restart-info">
@@ -990,9 +1035,9 @@
 								<li class="player-item">
 									<span class="player-name">{player.playerName}</span>
 									{#if playersReady.has(player.playerId)}
-										<span class="badge-ready">✓ Ready</span>
+										<span class="badge-ready">? Ready</span>
 									{:else}
-										<span class="badge-waiting">⏳ Waiting</span>
+										<span class="badge-waiting">? Waiting</span>
 									{/if}
 									{#if player.playerId === myPlayerId}
 										<span class="badge-you">You</span>
@@ -1004,16 +1049,16 @@
 
 					{#if !playersReady.has(myPlayerId)}
 						<button onclick={handleRestartReady} class="primary">
-							✓ I'm Ready to Play Again
+							? I'm Ready to Play Again
 						</button>
 					{:else if isHost}
 						<div class="waiting-message">
-							<p>⏳ Waiting for all players to be ready...</p>
+							<p>? Waiting for all players to be ready...</p>
 							<progress></progress>
 						</div>
 					{:else}
 						<div class="waiting-message">
-							<p>✓ You're ready! Waiting for others...</p>
+							<p>? You're ready! Waiting for others...</p>
 							<progress></progress>
 						</div>
 					{/if}
@@ -1035,56 +1080,70 @@
 		{/if}
 	{:else if gameState}
 		<div class="game-container">
-			<div class="multiplayer-info">
-				<span class="badge">🌐 Room: {roomId}</span>
-				{#if multiplayerService.isConnected()}
-					<span class="connection-status connected">🟢 Connected</span>
-				{:else}
-					<span class="connection-status disconnected">🔴 Disconnected</span>
-				{/if}
-				{#if currentPlayerObj && currentPlayerObj.id === myPlayerId}
-					<span class="your-turn">🎯 Your Turn!</span>
-				{/if}
-			</div>
-			
 			{#if errorMessage}
 				<article style="background-color: var(--pico-del-color); margin-bottom: 1rem;">
 					<p><strong>Error:</strong> {errorMessage}</p>
 				</article>
 			{/if}
 
-			<GameBoard gameState={gameState} updateKey={updateCounter} />
+			<!-- Primary auction controls - side by side layout -->
+			<div class="auction-controls-grid">
+				{#if currentCard}
+					<article class="auction-card-panel">
+						<header>
+							<hgroup>
+								<h3>Current Auction</h3>
+								<p>
+									{#if currentPhase === GamePhase.DISGRACE_AUCTION}
+										<mark>Disgrace! Bid to avoid this card</mark>
+									{:else}
+										Bid to win this luxury item
+									{/if}
+								</p>
+							</hgroup>
+						</header>
 
-			<div class="grid">
-				{#if currentPlayerObj && currentPlayerIndex !== undefined}
-					<AuctionPanel 
-						auction={currentAuction ?? null}
-						currentPlayer={currentPlayerObj}
-						localPlayer={localPlayer}
-					currentPlayerIndex={currentPlayerIndex}
-					allPlayers={allPlayers}
-					onBid={placeBid}
-					onPass={pass}
-					selectedTotal={selectedMoneyCards.reduce((sum, id) => {
-						const card = localPlayer?.getMoneyHand().find(c => c.id === id);
-						return sum + (card?.value || 0);
-					}, 0)}
-					updateKey={updateCounter}
-					isMultiplayer={true}
-					isMyTurn={isMyTurn}
-				/>
+						<section class="card-display-compact">
+							<div class="status-card-large {currentPhase === GamePhase.DISGRACE_AUCTION ? 'disgrace' : 'luxury'}">
+								<h2>{currentCard.name}</h2>
+								<div class="card-value">
+									{currentCard.getDisplayValue()}
+								</div>
+							</div>
+						</section>
+
+						<footer class="game-info-compact">
+							<small>
+								Triggers: {gameState.getPublicState().gameEndTriggerCount} / 4
+								• Cards Left: {gameState.getPublicState().remainingStatusCards}
+							</small>
+						</footer>
+					</article>
 				{/if}
 
-				<StatusDisplay players={allPlayers} updateKey={updateCounter} />
+				{#if localPlayer}
+					<PlayerHand 
+						player={localPlayer}
+						selectedCards={selectedMoneyCards}
+						onToggleCard={toggleMoneyCard}
+						updateKey={updateCounter}
+						isMyTurn={isMyTurn}
+						auction={currentAuction ?? null}
+						onBid={placeBid}
+						onPass={pass}
+						isMultiplayer={true}
+					/>
+				{/if}
 			</div>
 
-			{#if localPlayer}
-				<PlayerHand 
-					player={localPlayer}
-					selectedCards={selectedMoneyCards}
-					onToggleCard={toggleMoneyCard}
+			<!-- Secondary information - player status below -->
+			{#if currentPlayerObj && currentPlayerIndex !== undefined}
+				<AuctionPanel 
+					auction={currentAuction ?? null}
+					currentPlayer={currentPlayerObj}
+					currentPlayerIndex={currentPlayerIndex}
+					allPlayers={allPlayers}
 					updateKey={updateCounter}
-					isMyTurn={isMyTurn}
 				/>
 			{/if}
 
@@ -1117,93 +1176,338 @@
 
 <style>
 	main {
-		padding: 2rem 1rem;
+		padding: 0.5rem;
+	}
+
+	@media (min-width: 768px) {
+		main {
+			padding: 2rem 1rem;
+		}
+	}
+
+	.main-header {
+		position: sticky;
+		top: 0;
+		z-index: 100;
+		background-color: var(--pico-background-color);
+		margin-bottom: 0.75rem;
+		padding: 0.25rem 0 0.5rem 0;
+		border-bottom: 1px solid var(--pico-muted-border-color);
+	}
+
+	@media (min-width: 768px) {
+		.main-header {
+			position: relative;
+			margin-bottom: 1.5rem;
+			padding-bottom: 0.5rem;
+		}
+	}
+
+	.header-content {
+		display: grid;
+		grid-template-columns: 1fr auto auto;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	@media (min-width: 768px) {
+		.header-content {
+			gap: 1rem;
+		}
+	}
+
+	.header-left {
+		flex: 1;
+		min-width: 0;
+		text-align: left;
+	}
+
+	.header-left h1 {
+		margin-bottom: 0;
+		font-size: clamp(1rem, 4vw, 2rem);
+		color: var(--pico-primary);
+	}
+
+	.tagline {
+		margin: 0.25rem 0 0 0;
+		font-size: clamp(0.65rem, 1.8vw, 0.875rem);
+		color: var(--pico-muted-color);
+	}
+
+	@media (min-width: 768px) {
+		.header-left h1 {
+			margin-bottom: 0.5rem;
+			font-size: 2rem;
+		}
+		
+		.tagline {
+			font-size: 1rem;
+		}
+	}
+
+	.header-center {
+		display: flex;
+		justify-content: center;
+	}
+
+	.header-right {
+		display: flex;
+		justify-content: flex-end;
+	}
+
+	.turn-status {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: var(--pico-border-radius);
+		font-size: clamp(0.75rem, 2vw, 0.875rem);
+		font-weight: 600;
+		white-space: nowrap;
+		transition: all 0.3s ease;
+	}
+
+	@media (min-width: 768px) {
+		.turn-status {
+			gap: 0.5rem;
+			padding: 0.375rem 0.75rem;
+			font-size: 0.875rem;
+		}
+	}
+
+	.turn-status.your-turn {
+		background-color: var(--pico-ins-color);
+		color: var(--pico-contrast);
+		animation: pulse-glow 2s infinite;
+	}
+
+	.turn-status.waiting {
+		background-color: rgba(128, 128, 128, 0.15);
+		color: var(--pico-muted-color);
+	}
+
+	.turn-status :global(.turn-icon) {
+		flex-shrink: 0;
+	}
+
+	.turn-status.your-turn :global(.turn-icon) {
+		animation: bounce-icon 1s infinite;
+	}
+
+	.turn-status.waiting :global(.turn-icon) {
+		animation: rotate-icon 2s linear infinite;
+	}
+
+	.turn-text {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 15ch;
+	}
+
+	@media (min-width: 768px) {
+		.turn-text {
+			max-width: 20ch;
+		}
+	}
+
+	.status-group {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	@media (min-width: 768px) {
+		.status-group {
+			gap: 0.5rem;
+		}
+	}
+
+	.room-info {
+		display: inline-flex;
+		align-items: center;
+		font-size: clamp(0.7rem, 1.8vw, 0.8rem);
+		color: var(--pico-muted-color);
+		white-space: nowrap;
+	}
+
+	.room-info strong {
+		color: var(--pico-primary);
+		font-family: var(--pico-font-family-monospace);
+		margin-left: 0.25rem;
+	}
+
+	@media (min-width: 768px) {
+		.room-info {
+			font-size: 0.875rem;
+		}
+	}
+
+	.connection-icon {
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.connection-icon.connected {
+		color: var(--pico-ins-color);
+		animation: pulse-subtle 3s infinite;
+	}
+
+	.connection-icon.disconnected {
+		color: var(--pico-del-color);
+		animation: pulse-urgent 1s infinite;
+	}
+
+	@keyframes pulse-glow {
+		0%, 100% {
+			opacity: 1;
+			box-shadow: 0 0 0 rgba(0, 255, 0, 0);
+		}
+		50% {
+			opacity: 0.95;
+			box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+		}
+	}
+
+	@keyframes bounce-icon {
+		0%, 100% {
+			transform: translateY(0);
+		}
+		50% {
+			transform: translateY(-3px);
+		}
+	}
+
+	@keyframes rotate-icon {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	@keyframes pulse-subtle {
+		0%, 100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.7;
+		}
+	}
+
+	@keyframes pulse-urgent {
+		0%, 100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.4;
+		}
 	}
 
 	header {
 		text-align: center;
-		margin-bottom: 2rem;
+		margin-bottom: 1.5rem;
 	}
 
-	header h1 {
-		margin-bottom: 0.5rem;
-		color: var(--pico-primary);
-	}
-
-	header p {
-		color: var(--pico-muted-color);
+	@media (min-width: 768px) {
+		header {
+			margin-bottom: 2rem;
+		}
 	}
 
 	.game-container {
 		display: flex;
 		flex-direction: column;
-		gap: 1.5rem;
-	}
-
-	.multiplayer-info {
-		display: flex;
-		align-items: center;
 		gap: 1rem;
-		padding: 0.75rem 1rem;
-		background-color: var(--pico-card-background-color);
-		border-radius: var(--pico-border-radius);
-		margin-bottom: 1rem;
-		flex-wrap: wrap;
 	}
 
-	.badge {
-		display: inline-block;
-		padding: 0.25rem 0.75rem;
-		background-color: var(--pico-primary);
-		color: var(--pico-primary-inverse);
-		border-radius: var(--pico-border-radius);
-		font-size: 0.85rem;
-		font-weight: bold;
+	@media (min-width: 768px) {
+		.game-container {
+			gap: 1.5rem;
+		}
 	}
 
-	.multiplayer-info {
-		display: flex;
-		align-items: center;
+	.auction-controls-grid {
+		display: grid;
+		grid-template-columns: 1fr;
 		gap: 1rem;
-		padding: 0.75rem 1rem;
-		background-color: var(--pico-card-background-color);
+	}
+
+	@media (min-width: 768px) {
+		.auction-controls-grid {
+			grid-template-columns: auto 1fr;
+			gap: 1.5rem;
+			align-items: start;
+		}
+	}
+
+	.auction-card-panel {
+		min-width: 0;
+	}
+
+	@media (min-width: 768px) {
+		.auction-card-panel {
+			min-width: 250px;
+			max-width: 300px;
+		}
+	}
+
+	.card-display-compact {
+		display: flex;
+		justify-content: center;
+		padding: 1rem 0;
+	}
+
+	.status-card-large {
+		width: min(180px, 80vw);
+		padding: 1rem;
+		border: 3px solid var(--pico-primary);
 		border-radius: var(--pico-border-radius);
-		margin-bottom: 1rem;
-		flex-wrap: wrap;
+		text-align: center;
+		background: var(--pico-card-background-color);
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 	}
 
-	.connection-status {
-		font-size: 0.85rem;
+	@media (min-width: 768px) {
+		.status-card-large {
+			width: 200px;
+			padding: 1.5rem;
+		}
+	}
+
+	.status-card-large.disgrace {
+		border-color: var(--pico-del-color);
+		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(255, 0, 0, 0.1) 100%);
+	}
+
+	.status-card-large h2 {
+		margin: 0 0 0.75rem 0;
+		font-size: clamp(1.1rem, 4vw, 1.4rem);
+	}
+
+	.card-value {
+		font-size: clamp(1.75rem, 8vw, 2.5rem);
 		font-weight: bold;
+		color: var(--pico-primary);
 	}
 
-	.connection-status.connected {
-		color: var(--pico-ins-color);
-	}
-
-	.connection-status.disconnected {
+	.status-card-large.disgrace .card-value {
 		color: var(--pico-del-color);
 	}
 
-	.your-turn {
-		display: inline-block;
-		padding: 0.25rem 0.75rem;
-		background-color: var(--pico-ins-color);
-		color: var(--pico-contrast);
-		border-radius: var(--pico-border-radius);
-		font-size: 0.85rem;
-		font-weight: bold;
-		animation: pulse 2s infinite;
+	.game-info-compact {
+		margin-top: 0;
+		padding-top: 0.75rem;
+		border-top: 1px solid var(--pico-muted-border-color);
 	}
 
-	@keyframes pulse {
-		0%, 100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.6;
-		}
+	.game-info-compact small {
+		display: block;
+		text-align: center;
+		font-size: clamp(0.7rem, 1.8vw, 0.8rem);
 	}
+
+	/* Removed old .multiplayer-info - now using header-right */
 
 	/* Multiplayer Lobby Styles */
 	.multiplayer-lobby {
@@ -1237,12 +1541,18 @@
 		font-weight: bold;
 		font-family: var(--pico-font-family-monospace);
 		letter-spacing: 0.1em;
-		padding: 1rem;
+		padding: 0.75rem;
 		background-color: var(--pico-code-background-color);
 		border-radius: var(--pico-border-radius);
 		user-select: all;
 		word-break: break-all;
 		cursor: pointer;
+	}
+
+	@media (min-width: 768px) {
+		.room-code-large {
+			padding: 1rem;
+		}
 	}
 
 	.room-code-large:active {

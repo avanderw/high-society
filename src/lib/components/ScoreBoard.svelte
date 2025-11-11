@@ -39,7 +39,7 @@
 					<th>Rank</th>
 					<th>Player</th>
 					<th>Status</th>
-					<th>Money Left</th>
+					<th class="hide-mobile">Money</th>
 					<th>Result</th>
 				</tr>
 			</thead>
@@ -49,10 +49,10 @@
 						<td>#{ranking.rank}</td>
 						<td>
 							<span style="color: {ranking.player.color};">●</span>
-							{ranking.player.name}
+							<span class="player-name">{ranking.player.name}</span>
 						</td>
-						<td>{ranking.finalStatus}</td>
-						<td>{ranking.remainingMoney.toLocaleString()}</td>
+						<td><span class="status-value">{ranking.finalStatus}</span></td>
+						<td class="hide-mobile">{ranking.remainingMoney.toLocaleString()}</td>
 						<td>
 							{#if ranking.isCastOut}
 								<mark style="background-color: var(--pico-del-color);">Cast Out</mark>
@@ -103,21 +103,77 @@
 <style>
 	.winner-announcement {
 		text-align: center;
-		padding: 2rem;
+		padding: 1.5rem;
 		margin: 1rem 0;
 		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(0, 255, 0, 0.1) 100%);
 		border: 3px solid var(--pico-ins-color);
 		border-radius: var(--pico-border-radius);
 	}
 
+	@media (min-width: 768px) {
+		.winner-announcement {
+			padding: 2rem;
+		}
+	}
+
 	.winner-announcement h3 {
 		margin: 0 0 0.5rem 0;
 		color: var(--pico-ins-color);
+		font-size: clamp(1.25rem, 4vw, 1.5rem);
+	}
+
+	.winner-announcement p {
+		font-size: clamp(0.875rem, 2.5vw, 1rem);
 	}
 
 	.winner-row {
 		background: linear-gradient(90deg, transparent 0%, rgba(0, 255, 0, 0.1) 100%);
 		font-weight: bold;
+	}
+
+	/* Responsive table */
+	table {
+		font-size: clamp(0.75rem, 2vw, 1rem);
+	}
+
+	.hide-mobile {
+		display: none;
+	}
+
+	@media (min-width: 768px) {
+		.hide-mobile {
+			display: table-cell;
+		}
+	}
+
+	.player-name {
+		display: inline-block;
+		max-width: 15ch;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		vertical-align: middle;
+	}
+
+	@media (min-width: 768px) {
+		.player-name {
+			max-width: none;
+		}
+	}
+
+	.status-value {
+		font-size: clamp(0.75rem, 2vw, 1rem);
+	}
+
+	mark {
+		padding: 0.125rem 0.25rem;
+		font-size: clamp(0.65rem, 1.8vw, 0.75rem);
+	}
+
+	@media (min-width: 768px) {
+		mark {
+			padding: 0.25rem 0.5rem;
+		}
 	}
 
 	.card-list {
@@ -131,11 +187,12 @@
 		padding: 0.25rem 0.75rem;
 		background: var(--pico-card-sectioning-background-color);
 		border-radius: var(--pico-border-radius);
-		font-size: 0.875rem;
+		font-size: clamp(0.75rem, 2vw, 0.875rem);
 	}
 
 	button {
 		width: 100%;
 		margin-top: 1rem;
+		font-size: clamp(0.875rem, 2.5vw, 1rem);
 	}
 </style>

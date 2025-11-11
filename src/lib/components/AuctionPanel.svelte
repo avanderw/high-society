@@ -1,136 +1,196 @@
 <script lang="ts">
 	import type { Auction } from '$lib/domain/auction';
 	import type { Player } from '$lib/domain/player';
+	import { StatusCalculator } from '$lib/domain/scoring';
+	import { LuxuryCard, PrestigeCard } from '$lib/domain/cards';
 
 	interface Props {
 		auction: Auction | null;
 		currentPlayer: Player;
-		localPlayer?: Player; // The player at this client (for showing their personal bid)
 		currentPlayerIndex: number;
 		allPlayers: Player[];
-		onBid: () => void;
-		onPass: () => void;
-		selectedTotal: number;
 		updateKey?: number;
-		isMultiplayer?: boolean;
-		isMyTurn?: boolean;
 	}
 
-	let { auction, currentPlayer, localPlayer, currentPlayerIndex, allPlayers, onBid, onPass, selectedTotal, updateKey = 0, isMultiplayer = false, isMyTurn = true }: Props = $props();
+	let { auction, currentPlayer, currentPlayerIndex, allPlayers, updateKey = 0 }: Props = $props();
+
+	const calculator = new StatusCalculator();
 
 	const isActive = $derived((playerId: string) => 
 		auction?.getActivePlayers().has(playerId) ?? false
 	);
 
-	// Force reactivity by ensuring derived depends on updateKey
-	const currentBid = $derived.by(() => {
+	// Player status calculations
+	const playerStatuses = $derived.by(() => {
 		const _ = updateKey;
-		return auction?.getCurrentHighestBid() ?? 0;
+		return allPlayers.map(player => ({
+			player,
+			currentStatus: calculator.calculate(player.getStatusCards()),
+			statusCards: player.getStatusCards().sort((a, b) => {
+				if (a instanceof LuxuryCard && b instanceof LuxuryCard) {
+					return a.value - b.value;
+				}
+				if (a instanceof LuxuryCard) return -1;
+				if (b instanceof LuxuryCard) return 1;
+				if (a instanceof PrestigeCard && !(b instanceof PrestigeCard)) return -1;
+				if (b instanceof PrestigeCard && !(a instanceof PrestigeCard)) return 1;
+				return 0;
+			})
+		}));
 	});
-	// Use localPlayer for bid calculations if available, otherwise fall back to currentPlayer
-	const playerForBid = $derived(localPlayer ?? currentPlayer);
-	const playerCurrentBid = $derived.by(() => {
-		const _ = updateKey;
-		return playerForBid.getCurrentBidAmount();
-	});
-	const newTotalBid = $derived(playerCurrentBid + selectedTotal);
-	const canBid = $derived(newTotalBid > currentBid);
 </script>
 
 <article>
 	<header>
-		<h3>Auction</h3>
+		<h3>Player Status</h3>
 	</header>
 
 	<section>
-		<p><strong>Current Player:</strong> {currentPlayer.name}</p>
-		<p><strong>Current Highest Bid:</strong> {currentBid.toLocaleString()} Francs</p>
-		{#if playerCurrentBid > 0}
-			<p><strong>Your Current Bid:</strong> {playerCurrentBid.toLocaleString()} Francs</p>
-			<p><strong>Adding:</strong> {selectedTotal.toLocaleString()} Francs</p>
-			<p><strong>New Total:</strong> {newTotalBid.toLocaleString()} Francs</p>
-		{:else}
-			<p><strong>Your Selected Bid:</strong> {selectedTotal.toLocaleString()} Francs</p>
-		{/if}
-
-		<details>
-			<summary>Active Players</summary>
-			<ul>
-				{#each allPlayers as player, index}
-					<li>
+		{#each playerStatuses as { player, currentStatus, statusCards }}
+				<div class="player-status">
+					<div class="player-header">
 						<span style="color: {player.color};">●</span>
-						{player.name}
-						{#if index === currentPlayerIndex}
-							<mark>Current Turn</mark>
-						{/if}
+						<strong>{player.name}</strong>
+						<span class="status-value">Status: {currentStatus}</span>
 						{#if !isActive(player.id)}
-							<small>(Passed)</small>
+							<small class="passed-badge">(Passed)</small>
 						{/if}
-					</li>
-				{/each}
-			</ul>
-		</details>
-	</section>
+						{#if player.getPendingLuxuryDiscard()}
+							<mark style="background-color: var(--pico-del-color);">Must Discard</mark>
+						{/if}
+					</div>
 
-	<footer>
-		{#if isMultiplayer && !isMyTurn}
-			<div class="not-your-turn">
-				<p>⏳ Waiting for {currentPlayer.name} to take their turn...</p>
-			</div>
-		{:else}
-			<div class="grid">
-				<button 
-					onclick={onBid} 
-					disabled={!canBid || selectedTotal === 0}
-					class="primary"
-				>
-					Place Bid ({selectedTotal.toLocaleString()})
-				</button>
-				<button 
-					onclick={onPass}
-					class="secondary"
-				>
-					Pass
-				</button>
-			</div>
-			{#if !canBid && selectedTotal > 0}
-				<small style="color: var(--pico-del-color);">
-					Your new total ({newTotalBid.toLocaleString()}) must be higher than {currentBid.toLocaleString()}
-				</small>
-			{/if}
-		{/if}
-	</footer>
+					<div class="status-cards">
+						{#if statusCards.length > 0}
+							<div class="card-list">
+								{#each statusCards as card}
+									<div class="status-card-mini {card instanceof LuxuryCard ? 'luxury' : card instanceof PrestigeCard ? 'prestige' : 'disgrace'}">
+										<strong>{card.name}</strong>
+										<span>{card.getDisplayValue()}</span>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+
+					<small class="player-money">
+						Money: {player.getTotalRemainingMoney().toLocaleString()} Francs
+						({player.getMoneyHand().length} cards)
+					</small>
+				</div>
+			{/each}
+	</section>
 </article>
 
 <style>
-	ul {
-		list-style: none;
-		padding: 0;
+	section {
+		font-size: clamp(0.875rem, 2vw, 1rem);
 	}
 
-	li {
-		padding: 0.5rem;
-		margin: 0.25rem 0;
+	.player-status {
+		padding: 0.75rem;
+		margin-bottom: 0.5rem;
+		background-color: var(--pico-card-sectioning-background-color);
+		border-radius: var(--pico-border-radius);
+		border-left: 3px solid transparent;
+	}
+
+	.player-status:has(.passed-badge) {
+		opacity: 0.7;
+	}
+
+	.player-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		margin-bottom: 0.5rem;
+	}
+
+	.player-header strong {
+		font-size: clamp(0.875rem, 2vw, 1rem);
+	}
+
+	.status-value {
+		color: var(--pico-primary);
+		font-weight: 600;
+		font-size: clamp(0.875rem, 2vw, 1rem);
+	}
+
+	.passed-badge {
+		color: var(--pico-muted-color);
+		font-style: italic;
+	}
+
+	.status-cards {
+		margin: 0.5rem 0;
+	}
+
+	.card-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.status-card-mini {
+		padding: 0.25rem 0.5rem;
+		border: 2px solid var(--pico-primary);
+		border-radius: var(--pico-border-radius);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.125rem;
+		min-width: min(80px, 20vw);
+		background: var(--pico-card-background-color);
+	}
+
+	@media (min-width: 768px) {
+		.status-card-mini {
+			padding: 0.375rem 0.625rem;
+			min-width: 80px;
+		}
+	}
+
+	.status-card-mini.luxury {
+		border-color: var(--pico-primary);
+	}
+
+	.status-card-mini.prestige {
+		border-color: var(--pico-ins-color);
+		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(0, 255, 0, 0.1) 100%);
+	}
+
+	.status-card-mini.disgrace {
+		border-color: var(--pico-del-color);
+		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(255, 0, 0, 0.1) 100%);
+	}
+
+	.status-card-mini strong {
+		font-size: clamp(0.65rem, 1.8vw, 0.75rem);
+		text-align: center;
+		line-height: 1.2;
+	}
+
+	.status-card-mini span {
+		font-size: clamp(0.875rem, 2.5vw, 1rem);
+		font-weight: bold;
+	}
+
+	.player-money {
+		display: block;
+		font-size: clamp(0.75rem, 1.8vw, 0.875rem);
+		color: var(--pico-muted-color);
+		margin-top: 0.5rem;
 	}
 
 	mark {
-		padding: 0.25rem 0.5rem;
-		margin-left: 0.5rem;
+		padding: 0.125rem 0.25rem;
+		font-size: clamp(0.65rem, 1.8vw, 0.75rem);
 	}
 
-	footer {
-		margin-top: 1rem;
-	}
-
-	.not-your-turn {
-		text-align: center;
-		padding: 1rem;
-		background-color: var(--pico-card-background-color);
-		border-radius: var(--pico-border-radius);
-		color: var(--pico-muted-color);
-	}
-
-	.not-your-turn p {
-		margin: 0;
+	@media (min-width: 768px) {
+		mark {
+			padding: 0.25rem 0.5rem;
+		}
 	}
 </style>
