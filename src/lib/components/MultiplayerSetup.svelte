@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getMultiplayerService } from '$lib/multiplayer/service';
 	import { GameEventType, type GameEvent } from '$lib/multiplayer/events';
+	import { normalizeRoomCode } from '$lib/multiplayer/wordlist';
 	
 	type Props = {
 		onRoomReady: (roomId: string, playerId: string, playerName: string, isHost: boolean, players: Array<{ playerId: string; playerName: string }>) => void;
@@ -84,7 +85,8 @@
 			return;
 		}
 		
-		if (!roomCode.trim()) {
+		const normalizedRoomCode = normalizeRoomCode(roomCode);
+		if (!normalizedRoomCode) {
 			errorMessage = 'Please enter a room code';
 			return;
 		}
@@ -102,7 +104,7 @@
 			// Listen for game start event (critical for clients)
 			multiplayerService.on(GameEventType.GAME_STARTED, handleGameStarted);
 			
-			const result = await multiplayerService.joinRoom(roomCode.trim(), finalName);
+			const result = await multiplayerService.joinRoom(normalizedRoomCode, finalName);
 			
 			currentRoomId = result.roomId;
 			currentPlayerId = result.playerId;
@@ -185,6 +187,32 @@
 	function copyRoomCode() {
 		navigator.clipboard.writeText(currentRoomId);
 	}
+
+	async function shareRoomCode() {
+		const shareData = {
+			title: 'Join my High Society game!',
+			text: `Join my High Society game with code: ${currentRoomId}`,
+			url: window.location.href
+		};
+
+		try {
+			if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+				await navigator.share(shareData);
+			} else {
+				// Fallback to copy
+				await navigator.clipboard.writeText(currentRoomId);
+				// Could show a toast notification here
+			}
+		} catch (err) {
+			console.log('Error sharing:', err);
+			// Fallback to copy
+			try {
+				await navigator.clipboard.writeText(currentRoomId);
+			} catch (copyErr) {
+				console.error('Failed to copy:', copyErr);
+			}
+		}
+	}
 </script>
 
 <article>
@@ -265,12 +293,21 @@
 				<h3>Room Code</h3>
 				<div class="code-box">
 					<code class="room-code">{currentRoomId}</code>
+				</div>
+				<div class="code-actions">
 					<button 
 						onclick={copyRoomCode}
-						class="secondary copy-button"
+						class="secondary"
 						title="Copy to clipboard"
 					>
-						📋
+						📋 Copy
+					</button>
+					<button 
+						onclick={shareRoomCode}
+						class="secondary"
+						title="Share room code"
+					>
+						📤 Share
 					</button>
 				</div>
 				<p class="help-text">Share this code with other players</p>
@@ -338,7 +375,7 @@
 				<input 
 					type="text" 
 					bind:value={roomCode}
-					placeholder="Enter room code"
+					placeholder="apple-banana-cherry"
 					disabled={isConnecting}
 				/>
 			</label>
@@ -440,52 +477,52 @@
 
 	.code-box {
 		display: flex;
-		align-items: stretch;
+		align-items: center;
 		justify-content: center;
-		gap: 0.5rem;
 		margin: 1rem 0;
-		flex-wrap: wrap;
 	}
 
 	.code-box .room-code {
-		font-size: clamp(1.5rem, 5vw, 2rem);
+		font-size: clamp(1.25rem, 4vw, 1.75rem);
 		font-weight: bold;
-		padding: 1rem;
+		padding: 1rem 1.5rem;
 		background-color: var(--pico-code-background-color);
 		border-radius: var(--pico-border-radius);
-		letter-spacing: 0.2em;
-		flex: 1;
-		min-width: 200px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		word-break: break-all;
+		letter-spacing: 0.05em;
+		word-break: break-word;
 		user-select: all;
+		text-align: center;
+		flex: 1;
+		max-width: 100%;
 	}
 
-	.copy-button {
-		margin: 0;
-		padding: 1rem;
-		font-size: 1.5rem;
-		min-width: auto;
+	.code-actions {
 		display: flex;
-		align-items: center;
+		gap: 0.5rem;
 		justify-content: center;
+		margin-bottom: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.code-actions button {
+		margin: 0;
+		padding: 0.5rem 1rem;
+		flex: 1;
+		min-width: 120px;
+		max-width: 200px;
 	}
 
 	/* Mobile optimization */
 	@media (max-width: 576px) {
-		.code-box {
-			flex-direction: column;
-		}
-
 		.code-box .room-code {
-			font-size: 1.75rem;
-			padding: 1.25rem;
+			font-size: 1.25rem;
+			padding: 1rem;
+			letter-spacing: 0.05em;
 		}
 
-		.copy-button {
-			width: 100%;
+		.code-actions button {
+			flex: 1 1 100%;
+			max-width: 100%;
 		}
 	}
 
