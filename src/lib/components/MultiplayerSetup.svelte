@@ -24,13 +24,50 @@
 
 	const multiplayerService = getMultiplayerService();
 
-	// Random name generator
+	// Random name generator - expanded list to reduce collision rates
 	const randomNames = [
+		// Aristocratic titles
 		'Baron von Bling', 'Duchess Diamond', 'Count Cashmore', 'Lady Luxe',
 		'Sir Spendwell', 'Princess Prestige', 'Duke Dapper', 'Madame Moneybags',
 		'Lord Lavish', 'Baroness Bling', 'Captain Cash', 'Miss Fortune',
 		'Earl Elegant', 'Countess Couture', 'Sir Status', 'Lady Lush',
-		'Baron Bountiful', 'Duchess Decadent', 'Lord Luxury', 'Miss Magnificent'
+		'Baron Bountiful', 'Duchess Decadent', 'Lord Luxury', 'Miss Magnificent',
+		
+		// More aristocrats
+		'Viscount Velvet', 'Marquis Marble', 'Lady Sapphire', 'Duke Gilded',
+		'Baroness Brilliant', 'Earl Opulent', 'Countess Crystal', 'Lord Sterling',
+		'Dame Desire', 'Sir Sovereign', 'Princess Pearl', 'Baron Baroque',
+		'Lady Majestic', 'Count Cavalier', 'Duchess Divine', 'Marquis Magnificent',
+		
+		// Wealthy personas
+		'Tycoon Topaz', 'Mogul Milano', 'Heiress Harper', 'Magnate Maxwell',
+		'Socialite Sinclair', 'Billionaire Blake', 'Patron Pembroke', 'Elite Ellis',
+		'VIP Valencia', 'Grande Greenwich', 'Premier Parker', 'Noble Nash',
+		
+		// Glamorous names
+		'Gatsby Gold', 'Vanderbilt Vogue', 'Rockefeller Ruby', 'Carnegie Charm',
+		'Astor Amethyst', 'Whitney Wonder', 'Morgan Majesty', 'Rothschild Rose',
+		'Windsor Wealth', 'Habsburg Haute', 'Medici Magnificence', 'Tudor Treasure',
+		
+		// Luxurious descriptors
+		'Platinum Prince', 'Golden Grace', 'Silver Sage', 'Bronze Beauty',
+		'Ivory Icon', 'Emerald Empress', 'Amber Admiral', 'Jade Justice',
+		'Scarlet Supreme', 'Violet Virtue', 'Azure Ace', 'Crimson Crown',
+		
+		// Fancy locations
+		'Monaco Marcel', 'Beverly Beaumont', 'Mayfair Maximilian', 'Riviera Reginald',
+		'Geneva Genevieve', 'Versailles Victor', 'Capri Catherine', 'Tuscany Theodore',
+		'Monaco Margot', 'Portofino Philip', 'Santorini Sophia', 'Biarritz Benedict',
+		
+		// Opulent terms
+		'Sovereign Sinclair', 'Regal Remington', 'Imperial Irving', 'Royal Rosalind',
+		'Noble Nathaniel', 'Kingly Kingston', 'Queenly Quincy', 'Princely Preston',
+		'Majestic Montgomery', 'Splendid Spencer', 'Grand Grayson', 'Stately Sterling',
+		
+		// More creative combinations
+		'Champagne Charlie', 'Caviar Caroline', 'Truffle Tristan', 'Saffron Sabrina',
+		'Velvet Vivian', 'Cashmere Cassidy', 'Silk Sebastian', 'Satin Samantha',
+		'Brocade Benjamin', 'Damask Delilah', 'Taffeta Timothy', 'Chiffon Charlotte'
 	];
 
 	function generateRandomPlaceholder() {

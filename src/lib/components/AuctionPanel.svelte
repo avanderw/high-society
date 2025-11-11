@@ -3,6 +3,7 @@
 	import type { Player } from '$lib/domain/player';
 	import { StatusCalculator } from '$lib/domain/scoring';
 	import { LuxuryCard, PrestigeCard } from '$lib/domain/cards';
+	import { Wifi, WifiOff } from 'lucide-svelte';
 
 	interface Props {
 		auction: Auction | null;
@@ -10,9 +11,11 @@
 		currentPlayerIndex: number;
 		allPlayers: Player[];
 		updateKey?: number;
+		connectedPlayerIds?: Set<string>;
+		playerIdToGameIndex?: Map<string, number>;
 	}
 
-	let { auction, currentPlayer, currentPlayerIndex, allPlayers, updateKey = 0 }: Props = $props();
+	let { auction, currentPlayer, currentPlayerIndex, allPlayers, updateKey = 0, connectedPlayerIds = new Set(), playerIdToGameIndex = new Map() }: Props = $props();
 
 	const calculator = new StatusCalculator();
 
@@ -20,11 +23,24 @@
 		auction?.getActivePlayers().has(playerId) ?? false
 	);
 
+	// Check if a player is connected based on their multiplayer ID
+	const isPlayerConnected = $derived((gamePlayerIndex: number) => {
+		// Find the multiplayer player ID for this game player index
+		for (const [multiplayerId, index] of playerIdToGameIndex.entries()) {
+			if (index === gamePlayerIndex) {
+				return connectedPlayerIds.has(multiplayerId);
+			}
+		}
+		// If we can't find a mapping, assume connected (fallback for safety)
+		return true;
+	});
+
 	// Player status calculations
 	const playerStatuses = $derived.by(() => {
 		const _ = updateKey;
-		return allPlayers.map(player => ({
+		return allPlayers.map((player, index) => ({
 			player,
+			gameIndex: index,
 			currentStatus: calculator.calculate(player.getStatusCards()),
 			statusCards: player.getStatusCards().sort((a, b) => {
 				if (a instanceof LuxuryCard && b instanceof LuxuryCard) {
@@ -46,11 +62,20 @@
 	</header>
 
 	<section>
-		{#each playerStatuses as { player, currentStatus, statusCards }}
-				<div class="player-status">
+		{#each playerStatuses as { player, gameIndex, currentStatus, statusCards }}
+				<div class="player-status" class:disconnected={!isPlayerConnected(gameIndex)}>
 					<div class="player-header">
 						<span style="color: {player.color};">●</span>
 						<strong>{player.name}</strong>
+						{#if !isPlayerConnected(gameIndex)}
+							<span class="connection-status disconnected" title="Player disconnected">
+								<WifiOff size={14} />
+							</span>
+						{:else}
+							<span class="connection-status connected" title="Player connected">
+								<Wifi size={14} />
+							</span>
+						{/if}
 						<span class="status-value">Status: {currentStatus}</span>
 						{#if !isActive(player.id)}
 							<small class="passed-badge">(Passed)</small>
@@ -93,10 +118,44 @@
 		background-color: var(--pico-card-sectioning-background-color);
 		border-radius: var(--pico-border-radius);
 		border-left: 3px solid transparent;
+		transition: opacity 0.3s ease;
+	}
+
+	.player-status.disconnected {
+		opacity: 0.5;
+		border-left-color: var(--pico-del-color);
 	}
 
 	.player-status:has(.passed-badge) {
 		opacity: 0.7;
+	}
+
+	.player-status.disconnected:has(.passed-badge) {
+		opacity: 0.4;
+	}
+
+	.connection-status {
+		display: inline-flex;
+		align-items: center;
+		margin-left: 0.25rem;
+	}
+
+	.connection-status.connected {
+		color: var(--pico-ins-color);
+	}
+
+	.connection-status.disconnected {
+		color: var(--pico-del-color);
+		animation: pulse-disconnect 2s infinite;
+	}
+
+	@keyframes pulse-disconnect {
+		0%, 100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.5;
+		}
 	}
 
 	.player-header {

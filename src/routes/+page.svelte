@@ -34,8 +34,18 @@
 	let restartRequested = $state(false); // True when host requests restart
 	let playersReady = $state<Set<string>>(new Set()); // Track which players are ready to restart
 	
+	// Disconnection and rejoin state
+	let showRejoinPrompt = $state(false);
+	let isRejoining = $state(false);
+	let rejoinError = $state('');
+	
 	// Map multiplayer player IDs to game player indices
 	let playerIdToGameIndex = $state<Map<string, number>>(new Map());
+
+	// Track connected players (derived from lobbyPlayers)
+	const connectedPlayerIds = $derived.by(() => {
+		return new Set(lobbyPlayers.map(p => p.playerId));
+	});
 
 	let gameState = $state<GameState | null>(null);
 	let selectedMoneyCards = $state<string[]>([]);
@@ -815,7 +825,7 @@
 	}
 
 	function newGame() {
-		// Clean up multiplayer connection
+		// Leave room but don't clear session - allow rejoin
 		multiplayerService.leaveRoom();
 		multiplayerService.disconnect();
 		
@@ -835,6 +845,70 @@
 		lobbyPlayers = [];
 		restartRequested = false;
 		playersReady = new Set();
+		showRejoinPrompt = false;
+		rejoinError = '';
+		
+		// Show rejoin option immediately
+		if (multiplayerService.hasPreviousSession()) {
+			showRejoinPrompt = true;
+		}
+	}
+
+	function startNewGamePermanently() {
+		// Permanently clear session and start fresh
+		multiplayerService.leaveRoomPermanently();
+		multiplayerService.disconnect();
+		
+		// Reset all state
+		gameState = null;
+		selectedMoneyCards = [];
+		errorMessage = '';
+		showLuxuryDiscard = false;
+		showAuctionResult = false;
+		auctionResultData = null;
+		updateCounter = 0;
+		roomId = '';
+		myPlayerId = '';
+		myPlayerName = '';
+		isHost = false;
+		inLobby = true;
+		lobbyPlayers = [];
+		restartRequested = false;
+		playersReady = new Set();
+		showRejoinPrompt = false;
+		rejoinError = '';
+	}
+
+	async function attemptRejoin() {
+		isRejoining = true;
+		rejoinError = '';
+		
+		try {
+			await multiplayerService.connect();
+			const result = await multiplayerService.rejoinRoom();
+			
+			// Update state with rejoined room info
+			roomId = result.roomId;
+			myPlayerId = result.playerId;
+			lobbyPlayers = result.players;
+			showRejoinPrompt = false;
+			isRejoining = false;
+			
+			console.log('Successfully rejoined room:', roomId);
+			
+			// If we were in a game, the existing game state should still be valid
+			// The connection status will automatically update
+		} catch (error) {
+			rejoinError = error instanceof Error ? error.message : 'Failed to rejoin room';
+			isRejoining = false;
+			console.error('Rejoin failed:', error);
+		}
+	}
+
+	function cancelRejoin() {
+		showRejoinPrompt = false;
+		rejoinError = '';
+		startNewGamePermanently();
 	}
 
 	function closeAuctionResult() {
@@ -895,6 +969,22 @@
 		}
 	});
 
+	// Monitor connection status and show rejoin prompt if disconnected
+	$effect(() => {
+		const isConnected = multiplayerService.isConnected();
+		const hasPreviousSession = multiplayerService.hasPreviousSession();
+		
+		// Show rejoin prompt if:
+		// 1. We're disconnected
+		// 2. We have a previous session
+		// 3. We're not already showing the prompt
+		// 4. We're not in lobby mode (meaning we were in a game)
+		if (!isConnected && hasPreviousSession && !showRejoinPrompt && !inLobby) {
+			console.log('Connection lost - showing rejoin prompt');
+			showRejoinPrompt = true;
+		}
+	});
+
 	// Clear selected cards when current player changes
 	$effect(() => {
 		if (currentPlayerObj) {
@@ -911,8 +1001,8 @@
 		<div class="header-content">
 			{#if gameState && currentPhase !== GamePhase.SCORING && currentPhase !== GamePhase.FINISHED}
 				<div class="header-end-game">
-					<button onclick={newGame} class="end-game-button outline secondary" aria-label="End game and return to main menu">
-						← End Game
+					<button onclick={newGame} class="end-game-button outline secondary" aria-label="Leave game">
+						← Leave Game
 					</button>
 				</div>
 			{/if}
@@ -1149,6 +1239,8 @@
 					currentPlayerIndex={currentPlayerIndex}
 					allPlayers={allPlayers}
 					updateKey={updateCounter}
+					connectedPlayerIds={connectedPlayerIds}
+					playerIdToGameIndex={playerIdToGameIndex}
 				/>
 			{/if}
 
@@ -1176,6 +1268,50 @@
 				/>
 			{/if}
 		</div>
+	{/if}
+
+	<!-- Rejoin Prompt Modal -->
+	{#if showRejoinPrompt}
+		<dialog open class="rejoin-modal">
+			<article>
+				<header>
+					<h3>Rejoin Previous Game?</h3>
+				</header>
+				<section>
+					<p>You left a game in progress.</p>
+					{#if rejoinError}
+						<div role="alert" class="rejoin-error">
+							<strong>Error:</strong> {rejoinError}
+						</div>
+					{/if}
+					{#if multiplayerService.getPreviousSession()}
+						<div class="session-info">
+							<p><strong>Room:</strong> {multiplayerService.getPreviousSession()?.roomId}</p>
+							<p><strong>Player:</strong> {multiplayerService.getPreviousSession()?.playerName}</p>
+						</div>
+					{/if}
+					<p>Would you like to rejoin your previous game or start a new one?</p>
+				</section>
+				<footer>
+					<div class="button-group">
+						<button 
+							onclick={attemptRejoin}
+							disabled={isRejoining}
+							class="primary"
+						>
+							{isRejoining ? 'Rejoining...' : '🔄 Rejoin Game'}
+						</button>
+						<button 
+							onclick={cancelRejoin}
+							disabled={isRejoining}
+							class="secondary"
+						>
+							🆕 Start New Game
+						</button>
+					</div>
+				</footer>
+			</article>
+		</dialog>
 	{/if}
 </main>
 
@@ -1750,5 +1886,78 @@
 		border-radius: var(--pico-border-radius);
 		font-size: 0.75rem;
 		font-weight: bold;
+	}
+
+	/* Rejoin Modal */
+	.rejoin-modal {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background-color: rgba(0, 0, 0, 0.8);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		margin: 0;
+		padding: 1rem;
+	}
+
+	.rejoin-modal article {
+		max-width: 500px;
+		width: 100%;
+		margin: 0;
+		animation: slideDown 0.3s ease-out;
+	}
+
+	@keyframes slideDown {
+		from {
+			opacity: 0;
+			transform: translateY(-20px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	.rejoin-modal section {
+		text-align: center;
+	}
+
+	.rejoin-modal section p {
+		margin: 1rem 0;
+	}
+
+	.session-info {
+		background-color: var(--pico-card-sectioning-background-color);
+		padding: 1rem;
+		border-radius: var(--pico-border-radius);
+		margin: 1rem 0;
+	}
+
+	.session-info p {
+		margin: 0.5rem 0;
+		font-size: 0.9rem;
+	}
+
+	.rejoin-error {
+		background-color: var(--pico-del-color);
+		color: var(--pico-contrast);
+		padding: 0.75rem;
+		border-radius: var(--pico-border-radius);
+		margin: 1rem 0;
+	}
+
+	.rejoin-modal .button-group {
+		display: flex;
+		gap: 1rem;
+		margin-top: 1.5rem;
+	}
+
+	.rejoin-modal .button-group button {
+		flex: 1;
+		margin: 0;
 	}
 </style>

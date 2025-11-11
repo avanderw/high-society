@@ -13,8 +13,76 @@ export class MultiplayerService {
 	private playerName: string | null = null;
 	private eventHandlers: Map<GameEventType | 'any', Set<EventCallback>> = new Map();
 	private connected: boolean = false;
+	
+	// Store previous session for rejoin
+	private previousSession: { roomId: string; playerId: string; playerName: string } | null = null;
 
-	constructor(private serverUrl: string) {}
+	constructor(private serverUrl: string) {
+		// Try to restore previous session from localStorage
+		this.restorePreviousSession();
+	}
+
+	/**
+	 * Save session to localStorage for rejoin capability
+	 */
+	private saveSession(): void {
+		if (this.roomId && this.playerId && this.playerName) {
+			const session = {
+				roomId: this.roomId,
+				playerId: this.playerId,
+				playerName: this.playerName,
+				timestamp: Date.now()
+			};
+			localStorage.setItem('highsociety_session', JSON.stringify(session));
+			this.previousSession = { roomId: this.roomId, playerId: this.playerId, playerName: this.playerName };
+		}
+	}
+
+	/**
+	 * Restore previous session from localStorage
+	 */
+	private restorePreviousSession(): void {
+		try {
+			const stored = localStorage.getItem('highsociety_session');
+			if (stored) {
+				const session = JSON.parse(stored);
+				// Only restore if session is less than 1 hour old
+				if (Date.now() - session.timestamp < 60 * 60 * 1000) {
+					this.previousSession = {
+						roomId: session.roomId,
+						playerId: session.playerId,
+						playerName: session.playerName
+					};
+				} else {
+					localStorage.removeItem('highsociety_session');
+				}
+			}
+		} catch (error) {
+			console.error('[Multiplayer] Failed to restore session:', error);
+		}
+	}
+
+	/**
+	 * Clear stored session
+	 */
+	private clearSession(): void {
+		localStorage.removeItem('highsociety_session');
+		this.previousSession = null;
+	}
+
+	/**
+	 * Check if there's a previous session available for rejoin
+	 */
+	hasPreviousSession(): boolean {
+		return this.previousSession !== null;
+	}
+
+	/**
+	 * Get previous session info
+	 */
+	getPreviousSession(): { roomId: string; playerId: string; playerName: string } | null {
+		return this.previousSession;
+	}
 
 	/**
 	 * Connect to the WebSocket server
@@ -74,6 +142,7 @@ export class MultiplayerService {
 			this.connected = false;
 			this.roomId = null;
 			this.playerId = null;
+			// Don't clear session - allow rejoin after disconnect
 		}
 	}
 
@@ -102,6 +171,7 @@ export class MultiplayerService {
 		this.roomId = roomId;			this.socket.emit('create_room', { roomId, playerId, playerName }, (response: any) => {
 				if (response.success) {
 					console.log('[Multiplayer] Room created:', roomId);
+					this.saveSession();
 					resolve({ roomId, playerId });
 				} else {
 					reject(new Error(response.error || 'Failed to create room'));
@@ -129,9 +199,48 @@ export class MultiplayerService {
 			this.socket.emit('join_room', { roomId, playerId, playerName }, (response: any) => {
 				if (response.success) {
 					console.log('[Multiplayer] Joined room:', roomId);
+					this.saveSession();
 					resolve({ roomId, playerId, players: response.players || [] });
 				} else {
 					reject(new Error(response.error || 'Failed to join room'));
+				}
+			});
+		});
+	}
+
+	/**
+	 * Rejoin a previous room with the same player ID
+	 */
+	rejoinRoom(): Promise<{ roomId: string; playerId: string; players: Array<{ playerId: string; playerName: string }> }> {
+		return new Promise((resolve, reject) => {
+			if (!this.socket) {
+				reject(new Error('Not connected to server'));
+				return;
+			}
+
+			if (!this.previousSession) {
+				reject(new Error('No previous session to rejoin'));
+				return;
+			}
+
+			const { roomId, playerId, playerName } = this.previousSession;
+
+			this.playerId = playerId;
+			this.playerName = playerName;
+			this.roomId = roomId;
+
+			console.log('[Multiplayer] Attempting to rejoin room:', roomId, 'as player:', playerId);
+
+			this.socket.emit('rejoin_room', { roomId, playerId, playerName }, (response: any) => {
+				if (response.success) {
+					console.log('[Multiplayer] Rejoined room:', roomId);
+					this.saveSession();
+					resolve({ roomId, playerId, players: response.players || [] });
+				} else {
+					console.error('[Multiplayer] Rejoin failed:', response.error);
+					// Clear invalid session
+					this.clearSession();
+					reject(new Error(response.error || 'Failed to rejoin room'));
 				}
 			});
 		});
@@ -144,7 +253,16 @@ export class MultiplayerService {
 		if (this.socket && this.roomId && this.playerId) {
 			this.socket.emit('leave_room', { roomId: this.roomId, playerId: this.playerId });
 			this.roomId = null;
+			// Don't clear session here - allow rejoin after accidental leave
 		}
+	}
+
+	/**
+	 * Permanently leave and clear session
+	 */
+	leaveRoomPermanently(): void {
+		this.leaveRoom();
+		this.clearSession();
 	}
 
 	/**
