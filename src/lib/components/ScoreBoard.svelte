@@ -6,9 +6,12 @@
 		players: Player[];
 		scoringService: GameScoringService;
 		onNewGame: () => void;
+		isHost?: boolean;
+		onPlayAgain?: () => void;
+		isMultiplayer?: boolean;
 	}
 
-	let { players, scoringService, onNewGame }: Props = $props();
+	let { players, scoringService, onNewGame, isHost = false, onPlayAgain, isMultiplayer = false }: Props = $props();
 
 	const rankings = $derived(scoringService.calculateFinalRankings(players));
 	const winner = $derived(rankings[0]);
@@ -90,7 +93,10 @@
 	</section>
 
 	<footer>
-		<button onclick={onNewGame} class="primary">New Game</button>
+		{#if isMultiplayer && isHost && onPlayAgain}
+			<button onclick={onPlayAgain} class="primary">🔄 Play Again with Same Players</button>
+		{/if}
+		<button onclick={onNewGame} class="secondary">New Game</button>
 	</footer>
 </article>
 

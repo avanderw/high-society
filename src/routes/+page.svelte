@@ -28,6 +28,10 @@
 	let listenersRegistered = false; // Flag to prevent duplicate listener registration
 	let processedEvents = $state<Set<string>>(new Set()); // Track processed events to prevent duplicates
 	
+	// Restart state management
+	let restartRequested = $state(false); // True when host requests restart
+	let playersReady = $state<Set<string>>(new Set()); // Track which players are ready to restart
+	
 	// Map multiplayer player IDs to game player indices
 	let playerIdToGameIndex = $state<Map<string, number>>(new Map());
 
@@ -130,9 +134,12 @@
 			playerName: playerNames[index]
 		}));
 		
+		// Get players from non-null gameState
+		const gamePlayers = gameState.getPlayers();
+		
 		const eventData = {
 			players: playerNames.map((name, i) => ({ 
-				id: gameState.getPlayers()[i].id, 
+				id: gamePlayers[i].id, 
 				name 
 			})),
 			initialState: serializeGameState(gameState),
@@ -277,6 +284,54 @@
 		});
 		
 		console.log('GAME_STARTED listener registered');
+		
+		// ============================================================
+		// GAME_RESTART_REQUESTED EVENT - Host requests restart, clients show join button
+		// ============================================================
+		multiplayerService.on(GameEventType.GAME_RESTART_REQUESTED, (event: GameEvent) => {
+			console.log('=== GAME_RESTART_REQUESTED EVENT RECEIVED ===');
+			console.log('My Role - Is Host:', isHost);
+			
+			// Prevent duplicate processing
+			if (!shouldProcessEvent('GAME_RESTART_REQUESTED', event.timestamp)) {
+				return;
+			}
+			
+			// HOST: Ignore own broadcast
+			if (isHost) {
+				console.log('HOST: Ignoring own GAME_RESTART_REQUESTED broadcast');
+				return;
+			}
+			
+			// CLIENT: Show restart prompt
+			console.log('CLIENT: Restart requested by host');
+			restartRequested = true;
+			playersReady = new Set();
+		});
+		
+		// ============================================================
+		// GAME_RESTART_READY EVENT - Track which players are ready
+		// ============================================================
+		multiplayerService.on(GameEventType.GAME_RESTART_READY, (event: GameEvent) => {
+			console.log('=== GAME_RESTART_READY EVENT RECEIVED ===');
+			console.log('Player ready:', event.data?.playerName);
+			
+			// Prevent duplicate processing
+			if (!shouldProcessEvent(`GAME_RESTART_READY_${event.data?.playerId}`, event.timestamp)) {
+				return;
+			}
+			
+			// Add player to ready set
+			if (event.data?.playerId) {
+				playersReady.add(event.data.playerId);
+				console.log(`Players ready: ${playersReady.size}/${lobbyPlayers.length}`);
+				
+				// Check if all players are ready and start if so
+				checkAndStartRestart();
+			}
+		});
+		
+		console.log('GAME_RESTART listeners registered');
 		
 		// Room events for lobby updates
 		multiplayerService.on('room:joined', (event: GameEvent) => {
@@ -747,6 +802,52 @@
 		isHost = false;
 		inLobby = true;
 		lobbyPlayers = [];
+		restartRequested = false;
+		playersReady = new Set();
+	}
+
+	function handlePlayAgain() {
+		console.log('=== HOST: REQUESTING PLAY AGAIN ===');
+		
+		// Reset restart state
+		restartRequested = true;
+		playersReady = new Set();
+		playersReady.add(myPlayerId); // Host is automatically ready
+		
+		// Request restart from all clients
+		multiplayerService.requestGameRestart();
+		
+		console.log('Play again requested, waiting for clients to join...');
+	}
+
+	function handleRestartReady() {
+		console.log('=== CLIENT: JOINING RESTART ===');
+		
+		// Signal we're ready to restart
+		multiplayerService.signalRestartReady();
+		playersReady.add(myPlayerId);
+		
+		console.log('Signaled ready for restart');
+	}
+
+	function checkAndStartRestart() {
+		// Only host can start the game
+		if (!isHost) return;
+		
+		// Check if all players are ready
+		const allPlayersReady = lobbyPlayers.every(player => playersReady.has(player.playerId));
+		
+		if (allPlayersReady) {
+			console.log('=== ALL PLAYERS READY - RESTARTING GAME ===');
+			
+			// Reset restart state
+			restartRequested = false;
+			playersReady = new Set();
+			
+			// Start new game with same players
+			const playerNames = lobbyPlayers.map(p => p.playerName);
+			startGameAsHost(playerNames);
+		}
 	}
 
 	$effect(() => {
@@ -840,11 +941,66 @@
 			</button>
 		</article>
 	{:else if gameState && (currentPhase === GamePhase.SCORING || currentPhase === GamePhase.FINISHED)}
-		<ScoreBoard 
-			players={allPlayers} 
-			scoringService={new GameScoringService()}
-			onNewGame={newGame}
-		/>
+		{#if restartRequested}
+			<!-- Restart lobby screen -->
+			<article class="restart-lobby">
+				<header>
+					<h2>🔄 Play Again?</h2>
+				</header>
+
+				<div class="restart-info">
+					<p>The host wants to play another round with the same players!</p>
+					
+					<div class="player-ready-list">
+						<h3>Players Ready ({playersReady.size}/{lobbyPlayers.length})</h3>
+						<ul>
+							{#each lobbyPlayers as player}
+								<li class="player-item">
+									<span class="player-name">{player.playerName}</span>
+									{#if playersReady.has(player.playerId)}
+										<span class="badge-ready">✓ Ready</span>
+									{:else}
+										<span class="badge-waiting">⏳ Waiting</span>
+									{/if}
+									{#if player.playerId === myPlayerId}
+										<span class="badge-you">You</span>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					</div>
+
+					{#if !playersReady.has(myPlayerId)}
+						<button onclick={handleRestartReady} class="primary">
+							✓ I'm Ready to Play Again
+						</button>
+					{:else if isHost}
+						<div class="waiting-message">
+							<p>⏳ Waiting for all players to be ready...</p>
+							<progress></progress>
+						</div>
+					{:else}
+						<div class="waiting-message">
+							<p>✓ You're ready! Waiting for others...</p>
+							<progress></progress>
+						</div>
+					{/if}
+
+					<button onclick={newGame} class="secondary">
+						Leave Room
+					</button>
+				</div>
+			</article>
+		{:else}
+			<ScoreBoard 
+				players={allPlayers} 
+				scoringService={new GameScoringService()}
+				onNewGame={newGame}
+				isHost={isHost}
+				onPlayAgain={handlePlayAgain}
+				isMultiplayer={true}
+			/>
+		{/if}
 	{:else if gameState}
 		<div class="game-container">
 			<div class="multiplayer-info">
@@ -903,10 +1059,14 @@
 			{#if showLuxuryDiscard}
 				{#each allPlayers as player}
 					{#if player.getPendingLuxuryDiscard() && player.getLuxuryCards().length > 0}
-						<LuxuryDiscardModal 
-							player={player}
-							onDiscard={handleLuxuryDiscard}
-						/>
+						{@const myGameIndex = playerIdToGameIndex.get(myPlayerId)}
+						{@const playerGameIndex = allPlayers.findIndex(p => p.id === player.id)}
+						{#if myGameIndex === playerGameIndex}
+							<LuxuryDiscardModal 
+								player={player}
+								onDiscard={handleLuxuryDiscard}
+							/>
+						{/if}
 					{/if}
 				{/each}
 			{/if}
@@ -1153,5 +1313,52 @@
 		margin-top: 0.5rem;
 		font-size: 0.9rem;
 		color: var(--pico-muted-color);
+	}
+
+	/* Restart Lobby Styles */
+	.restart-lobby {
+		max-width: 600px;
+		margin: 0 auto;
+	}
+
+	.restart-info {
+		text-align: center;
+	}
+
+	.restart-info > p {
+		margin-bottom: 2rem;
+		font-size: 1.1rem;
+		color: var(--pico-primary);
+	}
+
+	.player-ready-list {
+		margin: 2rem 0;
+		text-align: left;
+	}
+
+	.player-ready-list h3 {
+		margin-bottom: 1rem;
+		color: var(--pico-primary);
+		text-align: center;
+	}
+
+	.badge-ready {
+		display: inline-block;
+		padding: 0.25rem 0.5rem;
+		background-color: var(--pico-ins-color);
+		color: var(--pico-contrast);
+		border-radius: var(--pico-border-radius);
+		font-size: 0.75rem;
+		font-weight: bold;
+	}
+
+	.badge-waiting {
+		display: inline-block;
+		padding: 0.25rem 0.5rem;
+		background-color: var(--pico-muted-color);
+		color: var(--pico-contrast);
+		border-radius: var(--pico-border-radius);
+		font-size: 0.75rem;
+		font-weight: bold;
 	}
 </style>

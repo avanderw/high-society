@@ -149,6 +149,50 @@ export class MultiplayerService {
 	}
 
 	/**
+	 * Request a game restart (host only)
+	 */
+	requestGameRestart(): void {
+		if (!this.socket || !this.roomId || !this.playerId) {
+			console.warn('[Multiplayer] Cannot request restart: not in a room');
+			return;
+		}
+
+		const event = createGameEvent(
+			GameEventType.GAME_RESTART_REQUESTED,
+			this.roomId,
+			this.playerId,
+			{
+				hostPlayerId: this.playerId,
+				hostPlayerName: this.playerName
+			}
+		);
+		this.socket.emit('game_event', event);
+		console.log('[Multiplayer] Game restart requested');
+	}
+
+	/**
+	 * Signal ready for restart (client response)
+	 */
+	signalRestartReady(): void {
+		if (!this.socket || !this.roomId || !this.playerId) {
+			console.warn('[Multiplayer] Cannot signal ready: not in a room');
+			return;
+		}
+
+		const event = createGameEvent(
+			GameEventType.GAME_RESTART_READY,
+			this.roomId,
+			this.playerId,
+			{
+				playerId: this.playerId,
+				playerName: this.playerName
+			}
+		);
+		this.socket.emit('game_event', event);
+		console.log('[Multiplayer] Signaled ready for restart');
+	}
+
+	/**
 	 * Broadcast an event to all players in the room
 	 */
 	broadcastEvent(eventType: GameEventType, data?: any): void {
