@@ -6,20 +6,46 @@
 	let { onStart }: Props = $props();
 
 	let playerCount = $state(3);
-	let playerNames = $state<string[]>(['Alice', 'Bob', 'Charlie']);
+	let playerNames = $state<string[]>([]);
+	let placeholderNames = $state<string[]>([]);
+
+	const allRandomNames = [
+		'Baron von Bling', 'Duchess Diamond', 'Count Cashmore', 'Lady Luxe',
+		'Sir Spendwell', 'Princess Prestige', 'Duke Dapper', 'Madame Moneybags',
+		'Lord Lavish', 'Baroness Bling', 'Captain Cash', 'Miss Fortune',
+		'Earl Elegant', 'Countess Couture', 'Sir Status', 'Lady Lush',
+		'Baron Bountiful', 'Duchess Decadent', 'Lord Luxury', 'Miss Magnificent'
+	];
+
+	function generateRandomNames(count: number): string[] {
+		const shuffled = [...allRandomNames].sort(() => Math.random() - 0.5);
+		return shuffled.slice(0, count);
+	}
 
 	function handlePlayerCountChange(count: number) {
 		playerCount = count;
-		const names = ['Alice', 'Bob', 'Charlie', 'David', 'Eve'];
-		playerNames = names.slice(0, count);
+		placeholderNames = generateRandomNames(count);
+		// Keep existing non-empty names, add empty strings for new players
+		const newNames = [...playerNames];
+		while (newNames.length < count) {
+			newNames.push('');
+		}
+		playerNames = newNames.slice(0, count);
 	}
 
 	function handleStart() {
-		const validNames = playerNames.filter(name => name.trim() !== '');
-		if (validNames.length >= 2) {
-			onStart(validNames);
+		// Use placeholder names for empty inputs
+		const finalNames = playerNames.map((name, index) => 
+			name.trim() !== '' ? name.trim() : placeholderNames[index]
+		);
+		if (finalNames.length >= 2) {
+			onStart(finalNames);
 		}
 	}
+
+	// Initialize with random names
+	placeholderNames = generateRandomNames(3);
+	playerNames = ['', '', ''];
 </script>
 
 <article>
@@ -50,8 +76,7 @@
 						id="player-{index}"
 						type="text"
 						bind:value={playerNames[index]}
-						placeholder="Enter name"
-						required
+						placeholder={placeholderNames[index]}
 					/>
 				</label>
 			{/each}

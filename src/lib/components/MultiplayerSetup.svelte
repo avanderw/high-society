@@ -17,6 +17,7 @@
 	let currentRoomId = $state('');
 	let currentPlayerId = $state('');
 	let isHost = $state(false);
+	let placeholderName = $state('');
 
 	const multiplayerService = getMultiplayerService();
 
@@ -29,13 +30,19 @@
 		'Baron Bountiful', 'Duchess Decadent', 'Lord Luxury', 'Miss Magnificent'
 	];
 
-	function generateRandomName() {
+	function generateRandomPlaceholder() {
 		const randomIndex = Math.floor(Math.random() * randomNames.length);
-		playerName = randomNames[randomIndex];
+		placeholderName = randomNames[randomIndex];
 	}
 
+	// Generate initial placeholder name
+	generateRandomPlaceholder();
+
 	async function createRoom() {
-		if (!playerName.trim()) {
+		// Use placeholder if no name entered
+		const finalName = playerName.trim() || placeholderName;
+		
+		if (!finalName) {
 			errorMessage = 'Please enter your name';
 			return;
 		}
@@ -53,7 +60,7 @@
 			// Listen for game start event (for when we transition to game)
 			multiplayerService.on(GameEventType.GAME_STARTED, handleGameStarted);
 			
-			const { roomId, playerId } = await multiplayerService.createRoom(playerName.trim());
+			const { roomId, playerId } = await multiplayerService.createRoom(finalName);
 			
 			currentRoomId = roomId;
 			currentPlayerId = playerId;
@@ -69,7 +76,10 @@
 	}
 
 	async function joinRoom() {
-		if (!playerName.trim()) {
+		// Use placeholder if no name entered
+		const finalName = playerName.trim() || placeholderName;
+		
+		if (!finalName) {
 			errorMessage = 'Please enter your name';
 			return;
 		}
@@ -92,7 +102,7 @@
 			// Listen for game start event (critical for clients)
 			multiplayerService.on(GameEventType.GAME_STARTED, handleGameStarted);
 			
-			const result = await multiplayerService.joinRoom(roomCode.trim(), playerName.trim());
+			const result = await multiplayerService.joinRoom(roomCode.trim(), finalName);
 			
 			currentRoomId = result.roomId;
 			currentPlayerId = result.playerId;
@@ -135,7 +145,8 @@
 		// Just transition to the game view - the +page.svelte listener will handle the game state
 		if (!isHost) {
 			// For clients only, call onRoomReady to transition
-			onRoomReady(currentRoomId, currentPlayerId, playerName.trim(), isHost, connectedPlayers);
+			const finalName = playerName.trim() || placeholderName;
+			onRoomReady(currentRoomId, currentPlayerId, finalName, isHost, connectedPlayers);
 		}
 		// For host, onRoomReady was already called when they clicked "Start Game"
 	}
@@ -151,7 +162,8 @@
 			return;
 		}
 
-		onRoomReady(currentRoomId, currentPlayerId, playerName.trim(), isHost, connectedPlayers);
+		const finalName = playerName.trim() || placeholderName;
+		onRoomReady(currentRoomId, currentPlayerId, finalName, isHost, connectedPlayers);
 	}
 
 	function leaveRoom() {
@@ -215,12 +227,12 @@
 					<input 
 						type="text" 
 						bind:value={playerName}
-						placeholder="Enter your name"
+						placeholder={placeholderName}
 						disabled={isConnecting}
 					/>
 					<button 
 						type="button"
-						onclick={generateRandomName}
+						onclick={generateRandomPlaceholder}
 						class="secondary random-button"
 						disabled={isConnecting}
 						title="Generate random name"
@@ -233,7 +245,7 @@
 			<div class="button-group">
 				<button 
 					onclick={createRoom}
-					disabled={isConnecting || !playerName.trim()}
+					disabled={isConnecting}
 				>
 					{isConnecting ? 'Creating...' : 'Create Room'}
 				</button>
@@ -306,12 +318,12 @@
 					<input 
 						type="text" 
 						bind:value={playerName}
-						placeholder="Enter your name"
+						placeholder={placeholderName}
 						disabled={isConnecting}
 					/>
 					<button 
 						type="button"
-						onclick={generateRandomName}
+						onclick={generateRandomPlaceholder}
 						class="secondary random-button"
 						disabled={isConnecting}
 						title="Generate random name"
@@ -334,7 +346,7 @@
 			<div class="button-group">
 				<button 
 					onclick={joinRoom}
-					disabled={isConnecting || !playerName.trim() || !roomCode.trim()}
+					disabled={isConnecting || !roomCode.trim()}
 				>
 					{isConnecting ? 'Joining...' : 'Join Room'}
 				</button>
