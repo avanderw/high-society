@@ -62,6 +62,8 @@
 	const currentPlayerIndex = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayerIndex() : -1);
 	const currentPlayerObj = $derived(updateCounter >= 0 ? gameState?.getCurrentPlayer() : undefined);
 	const allPlayers = $derived(updateCounter >= 0 ? gameState?.getPlayers() ?? [] : []);
+	const gameEndTriggerCount = $derived(updateCounter >= 0 ? gameState?.getPublicState().gameEndTriggerCount ?? 0 : 0);
+	const remainingStatusCards = $derived(updateCounter >= 0 ? gameState?.getPublicState().remainingStatusCards ?? 0 : 0);
 	
 	// Get the local player based on multiplayer ID mapping
 	const localPlayer = $derived.by(() => {
@@ -797,10 +799,10 @@
 						winningBid
 					}
 				});
+				
+				// Force reactivity update for host
+				updateCounter++;
 			}
-			
-			// Force reactivity update
-			updateCounter++;
 		}
 	}
 
@@ -1232,8 +1234,8 @@
 
 						<footer class="game-info-compact">
 							<small>
-								Triggers: {gameState.getPublicState().gameEndTriggerCount} / 4
-								• Cards Left: {gameState.getPublicState().remainingStatusCards}
+								Triggers: {gameEndTriggerCount} / 4
+								• Cards Left: {remainingStatusCards}
 							</small>
 						</footer>
 					</article>
