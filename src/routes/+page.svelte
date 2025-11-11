@@ -596,11 +596,19 @@
 					console.log('CLIENT: Showing auction result modal for card:', card.name);
 				}
 				
-				// Handle luxury discard if needed
+				// Handle luxury discard if needed - only for the client controlling the winner
 				if (event.data.needsLuxuryDiscard) {
 					const winner = gameState.getPlayers().find(p => p.id === event.data.winnerId);
 					if (winner && winner.getLuxuryCards().length > 0) {
-						showLuxuryDiscard = true;
+						// Only show modal for the client controlling this player
+						const myGameIndex = playerIdToGameIndex.get(myPlayerId);
+						const winnerGameIndex = gameState.getPlayers().findIndex(p => p.id === winner.id);
+						if (myGameIndex === winnerGameIndex) {
+							showLuxuryDiscard = true;
+							console.log('CLIENT: Showing luxury discard modal for my player');
+						} else {
+							console.log('CLIENT: Winner needs to discard, but not my player');
+						}
 					}
 				}
 				
