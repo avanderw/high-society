@@ -909,6 +909,13 @@
 <main class="container">
 	<header class="main-header">
 		<div class="header-content">
+			{#if gameState && currentPhase !== GamePhase.SCORING && currentPhase !== GamePhase.FINISHED}
+				<div class="header-end-game">
+					<button onclick={newGame} class="end-game-button outline secondary" aria-label="End game and return to main menu">
+						← End Game
+					</button>
+				</div>
+			{/if}
 			<div class="header-left">
 				<h1>High Society</h1>
 				{#if !gameState}
@@ -916,23 +923,6 @@
 				{/if}
 			</div>
 			{#if gameState && roomId}
-				<div class="header-center">
-					{#if currentPlayerObj}
-						{#key `${currentPlayerIndex}-${isMyTurn}`}
-							{#if isMyTurn}
-								<div class="turn-status your-turn">
-									<Target size={16} class="turn-icon" />
-									<span class="turn-text">Your Turn</span>
-								</div>
-							{:else}
-								<div class="turn-status waiting">
-									<Clock size={16} class="turn-icon" />
-									<span class="turn-text">{currentPlayerObj.name}</span>
-								</div>
-							{/if}
-						{/key}
-					{/if}
-				</div>
 				<div class="header-right">
 					<div class="status-group">
 						<span class="room-info">Room: <strong>{roomId}</strong></span>
@@ -1101,6 +1091,21 @@
 									{/if}
 								</p>
 							</hgroup>
+							{#if currentPlayerObj}
+								{#key `${currentPlayerIndex}-${isMyTurn}`}
+									{#if isMyTurn}
+										<div class="turn-status your-turn">
+											<Target size={16} class="turn-icon" />
+											<span class="turn-text">Your Turn</span>
+										</div>
+									{:else}
+										<div class="turn-status waiting">
+											<Clock size={16} class="turn-icon" />
+											<span class="turn-text">{currentPlayerObj.name}'s Turn</span>
+										</div>
+									{/if}
+								{/key}
+							{/if}
 						</header>
 
 						<section class="card-display-compact">
@@ -1205,7 +1210,7 @@
 
 	.header-content {
 		display: grid;
-		grid-template-columns: 1fr auto auto;
+		grid-template-columns: auto 1fr auto;
 		align-items: center;
 		gap: 0.5rem;
 	}
@@ -1214,6 +1219,11 @@
 		.header-content {
 			gap: 1rem;
 		}
+	}
+
+	.header-end-game {
+		display: flex;
+		align-items: center;
 	}
 
 	.header-left {
@@ -1245,11 +1255,6 @@
 		}
 	}
 
-	.header-center {
-		display: flex;
-		justify-content: center;
-	}
-
 	.header-right {
 		display: flex;
 		justify-content: flex-end;
@@ -1265,6 +1270,8 @@
 		font-weight: 600;
 		white-space: nowrap;
 		transition: all 0.3s ease;
+		margin-top: 0.5rem;
+		width: fit-content;
 	}
 
 	@media (min-width: 768px) {
@@ -1401,6 +1408,30 @@
 		}
 		50% {
 			opacity: 0.4;
+		}
+	}
+
+	.end-game-button {
+		font-size: clamp(0.65rem, 1.8vw, 0.75rem);
+		padding: 0.25rem 0.5rem;
+		margin: 0;
+		background-color: transparent;
+		border-color: var(--pico-muted-border-color);
+		color: var(--pico-muted-color);
+		transition: all 0.2s ease;
+		white-space: nowrap;
+	}
+
+	.end-game-button:hover {
+		border-color: var(--pico-del-color);
+		color: var(--pico-del-color);
+		background-color: rgba(255, 0, 0, 0.05);
+	}
+
+	@media (min-width: 768px) {
+		.end-game-button {
+			font-size: 0.875rem;
+			padding: 0.5rem 1rem;
 		}
 	}
 
