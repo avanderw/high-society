@@ -7,34 +7,71 @@
 		card: StatusCard;
 		winningBid: number;
 		onClose: () => void;
+		isDisgrace?: boolean;
+		losersInfo?: Array<{ player: Player; bidAmount: number }>;
 	}
 
-	let { winner, card, winningBid, onClose }: Props = $props();
+	let { winner, card, winningBid, onClose, isDisgrace = false, losersInfo = [] }: Props = $props();
 </script>
 
 <dialog open>
 	<article>
 		<header>
-			<h2>🎯 Auction Complete!</h2>
+			<h2>{isDisgrace ? '😱 Disgrace!' : '🎯 Auction Complete!'}</h2>
 		</header>
 
 		<section class="result-content">
 			{#if winner}
-				<div class="winner-info">
-					<h3>
-						<span style="color: {winner.color};">●</span>
-						{winner.name} wins!
-					</h3>
-					<p class="winning-bid">Winning bid: {winningBid.toLocaleString()} Francs</p>
-				</div>
-
-				<div class="card-won">
-					<h4>Card Won:</h4>
-					<div class="card-display">
-						<strong>{card.name}</strong>
-						<span class="card-value">{card.getDisplayValue()}</span>
+				{#if isDisgrace}
+					<!-- Disgrace card result -->
+					<div class="disgrace-info">
+						<h3>
+							<span style="color: {winner.color};">●</span>
+							{winner.name} gets the disgrace card
+						</h3>
+						<p class="disgrace-note">They passed first and got their money back: {winningBid.toLocaleString()} Francs</p>
 					</div>
-				</div>
+
+					<div class="card-won disgrace-card">
+						<h4>Card Received:</h4>
+						<div class="card-display disgrace">
+							<strong>{card.name}</strong>
+							<span class="card-value">{card.getDisplayValue()}</span>
+						</div>
+					</div>
+
+					{#if losersInfo.length > 0}
+						<div class="bids-section">
+							<h4>Other Players' Bids (Lost):</h4>
+							<div class="bids-list">
+								{#each losersInfo as { player, bidAmount }}
+									<div class="bid-item paid">
+										<span style="color: {player.color};">●</span>
+										<strong>{player.name}</strong>
+										<span class="bid-amount lost">{bidAmount.toLocaleString()} Francs</span>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				{:else}
+					<!-- Regular luxury card result -->
+					<div class="winner-info">
+						<h3>
+							<span style="color: {winner.color};">●</span>
+							{winner.name} wins!
+						</h3>
+						<p class="winning-bid">Winning bid: {winningBid.toLocaleString()} Francs</p>
+					</div>
+
+					<div class="card-won">
+						<h4>Card Won:</h4>
+						<div class="card-display">
+							<strong>{card.name}</strong>
+							<span class="card-value">{card.getDisplayValue()}</span>
+						</div>
+					</div>
+				{/if}
 			{:else}
 				<div class="no-winner">
 					<p>No one won this auction!</p>
@@ -127,6 +164,11 @@
 		border-radius: var(--pico-border-radius);
 	}
 
+	.card-display.disgrace {
+		border-color: var(--pico-del-color);
+		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(255, 0, 0, 0.1) 100%);
+	}
+
 	.card-display strong {
 		font-size: clamp(1rem, 3vw, 1.2rem);
 	}
@@ -135,6 +177,65 @@
 		font-size: clamp(1.5rem, 5vw, 2rem);
 		font-weight: bold;
 		color: var(--pico-primary);
+	}
+
+	.card-display.disgrace .card-value {
+		color: var(--pico-del-color);
+	}
+
+	.disgrace-info h3 {
+		margin: 0 0 0.5rem 0;
+		font-size: clamp(1.25rem, 4vw, 1.5rem);
+	}
+
+	.disgrace-note {
+		font-size: clamp(0.875rem, 2.5vw, 1rem);
+		color: var(--pico-muted-color);
+		font-style: italic;
+	}
+
+	.card-won.disgrace-card {
+		border: 2px solid var(--pico-del-color);
+	}
+
+	.bids-section {
+		margin-top: 1.5rem;
+		padding: 1rem;
+		background-color: rgba(255, 0, 0, 0.05);
+		border-radius: var(--pico-border-radius);
+		border: 1px solid var(--pico-del-color);
+	}
+
+	.bids-section h4 {
+		margin: 0 0 1rem 0;
+		color: var(--pico-del-color);
+		font-size: clamp(0.875rem, 2.5vw, 1rem);
+	}
+
+	.bids-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.bid-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		background-color: var(--pico-card-background-color);
+		border-radius: var(--pico-border-radius);
+		border-left: 3px solid var(--pico-del-color);
+	}
+
+	.bid-item strong {
+		flex: 1;
+	}
+
+	.bid-amount {
+		font-weight: bold;
+		font-size: clamp(0.875rem, 2vw, 1rem);
+		color: var(--pico-del-color);
 	}
 
 	.no-winner {

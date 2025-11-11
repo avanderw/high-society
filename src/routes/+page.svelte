@@ -3,6 +3,7 @@
 	import { GameScoringService } from '$lib/domain/scoring';
 	import { AuctionResult } from '$lib/domain/auction';
 	import type { MoneyCard } from '$lib/domain/cards';
+	import type { Player } from '$lib/domain/player';
 	
 	import MultiplayerSetup from '$lib/components/MultiplayerSetup.svelte';
 	import AuctionPanel from '$lib/components/AuctionPanel.svelte';
@@ -52,8 +53,17 @@
 	let errorMessage = $state<string>('');
 	let showLuxuryDiscard = $state(false);
 	let showAuctionResult = $state(false);
-	let auctionResultData = $state<{ winner: any; card: any; winningBid: number } | null>(null);
+	let auctionResultData = $state<{ 
+		winner: any; 
+		card: any; 
+		winningBid: number;
+		isDisgrace?: boolean;
+		losersInfo?: Array<{ player: Player; bidAmount: number }>;
+	} | null>(null);
 	let updateCounter = $state(0); // Force update counter
+	
+	// Store bid snapshot before disgrace auction completes (money gets discarded)
+	let disgraceBidSnapshot: Array<{ playerId: string; bidAmount: number }> | null = null;
 	
 	// Derived state to force reactivity - all depend on updateCounter
 	const currentPhase = $derived(updateCounter >= 0 ? gameState?.getCurrentPhase() : undefined);
@@ -465,6 +475,15 @@
 					return;
 				}
 				
+				// For disgrace auctions, capture all bids BEFORE processPass (which discards money)
+				const isDisgrace = currentPhase === GamePhase.DISGRACE_AUCTION;
+				if (isDisgrace) {
+					disgraceBidSnapshot = gameState.getPlayers().map(p => ({
+						playerId: p.id,
+						bidAmount: p.getCurrentBidAmount()
+					}));
+				}
+				
 				const result = auction.processPass(player);
 				console.log('Pass processed, result:', result);
 
@@ -561,12 +580,18 @@
 				console.log('Player objects changed:', oldPlayers[0] !== newPlayers[0]);
 				
 				// Show auction result modal if auction result data is provided
-				if (event.data.auctionResult && event.data.auctionResult.card) {
-					const { winnerId, card: serializedCard, winningBid } = event.data.auctionResult;
+				if (event.data.auctionResult && event.data.auctionResult.card && gameState) {
+					const { winnerId, card: serializedCard, winningBid, isDisgrace, losersInfo: serializedLosers } = event.data.auctionResult;
 					const winner = winnerId ? gameState.getPlayers().find(p => p.id === winnerId) ?? null : null;
 					const card = deserializeStatusCard(serializedCard);
 					
-					auctionResultData = { winner, card, winningBid };
+					// Reconstruct losersInfo with actual player objects
+					const losersInfo = serializedLosers?.map((info: any) => ({
+						player: gameState!.getPlayers().find(p => p.id === info.playerId)!,
+						bidAmount: info.bidAmount
+					})) ?? [];
+					
+					auctionResultData = { winner, card, winningBid, isDisgrace, losersInfo };
 					showAuctionResult = true;
 					console.log('CLIENT: Showing auction result modal for card:', card.name);
 				}
@@ -696,6 +721,15 @@
 		}
 
 		try {
+			// For disgrace auctions, capture all bids BEFORE processPass (which discards money)
+			const isDisgrace = currentPhase === GamePhase.DISGRACE_AUCTION;
+			if (isDisgrace) {
+				disgraceBidSnapshot = gameState.getPlayers().map(p => ({
+					playerId: p.id,
+					bidAmount: p.getCurrentBidAmount()
+				}));
+			}
+			
 			const result = auction.processPass(currentPlayer);
 			selectedMoneyCards = [];
 			errorMessage = '';
@@ -737,6 +771,23 @@
 		const winner = auction?.getWinner() ?? null;
 		const card = auction?.getCard();
 		const winningBid = winner?.getCurrentBidAmount() ?? 0;
+		const isDisgrace = currentPhase === GamePhase.DISGRACE_AUCTION;
+		
+		// For disgrace auctions, use the snapshot taken before money was discarded
+		let losersInfo: Array<{ player: Player; bidAmount: number }> = [];
+		if (isDisgrace && winner && disgraceBidSnapshot && gameState) {
+			losersInfo = disgraceBidSnapshot
+				.filter(snap => snap.playerId !== winner.id)
+				.map(snap => ({
+					player: gameState!.getPlayers().find(p => p.id === snap.playerId)!,
+					bidAmount: snap.bidAmount
+				}))
+				// Sort by bid amount descending (highest bids first)
+				.sort((a, b) => b.bidAmount - a.bidAmount);
+			
+			// Clear the snapshot after using it
+			disgraceBidSnapshot = null;
+		}
 		
 		// Safety check: non-hosts should not complete auctions in multiplayer
 		// They should wait for the host to broadcast the new state
@@ -744,7 +795,7 @@
 			console.log('Non-host skipping auction completion, waiting for host broadcast');
 			// Show result for non-hosts too
 			if (card) {
-				auctionResultData = { winner, card, winningBid };
+				auctionResultData = { winner, card, winningBid, isDisgrace, losersInfo };
 				showAuctionResult = true;
 			}
 			updateCounter++;
@@ -753,7 +804,7 @@
 		
 		// Show auction result modal
 		if (card) {
-			auctionResultData = { winner, card, winningBid };
+			auctionResultData = { winner, card, winningBid, isDisgrace, losersInfo };
 			showAuctionResult = true;
 		}
 		
@@ -776,7 +827,13 @@
 						winnerId: winner?.id ?? null,
 						winnerName: winner?.name ?? null,
 						card: card ? serializeStatusCard(card) : null,
-						winningBid
+						winningBid,
+						isDisgrace,
+						losersInfo: losersInfo.map(info => ({
+							playerId: info.player.id,
+							playerName: info.player.name,
+							bidAmount: info.bidAmount
+						}))
 					}
 				});
 			}
@@ -796,7 +853,13 @@
 						winnerId: winner?.id ?? null,
 						winnerName: winner?.name ?? null,
 						card: card ? serializeStatusCard(card) : null,
-						winningBid
+						winningBid,
+						isDisgrace,
+						losersInfo: losersInfo.map(info => ({
+							playerId: info.player.id,
+							playerName: info.player.name,
+							bidAmount: info.bidAmount
+						}))
 					}
 				});
 				
@@ -1289,6 +1352,8 @@
 					winner={auctionResultData.winner}
 					card={auctionResultData.card}
 					winningBid={auctionResultData.winningBid}
+					isDisgrace={auctionResultData.isDisgrace}
+					losersInfo={auctionResultData.losersInfo}
 					onClose={closeAuctionResult}
 				/>
 			{/if}
