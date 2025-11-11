@@ -1,77 +1,227 @@
-# 📖 Documentation Index
+# Documentation Index# Documentation Index# 📖 Documentation Index
 
-Welcome to the High Society multiplayer documentation! This index will help you find exactly what you need.
 
-## 🚀 Getting Started
 
-**New to the project?** Start here:
+Quick reference to find the documentation you need.
 
-1. **[README.md](./README.md)** - Project overview, features, and basic setup
-2. **[QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md)** - Step-by-step guide to run multiplayer locally
-3. **[PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md)** - Understand the codebase organization
 
-## 🏗️ Architecture & Design
 
-**Want to understand how it works?**
+## Getting StartedQuick reference to find the documentation you need.Welcome to the High Society multiplayer documentation! This index will help you find exactly what you need.
 
-- **[MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md)** - Deep dive into multiplayer design
-  - Event-driven architecture
-  - Client-side state management
-  - Serialization patterns
-  - Security considerations
-  
-- **[IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md)** - Complete implementation overview
-  - What was built
-  - File changes
-  - Statistics
-  - Testing checklist
 
-## 🎮 Game Rules & Specifications
 
-**Need to understand the game itself?**
+**New to the project?**
 
-- **[20251001T142857_high-society-rules_*.md](./20251001T142857_high-society-rules_0b8224f9.md)** - Complete game rules
-- **[20251001T141917_high-society-coding-specification_*.md](./20251001T141917_high-society-coding-specification_1a93b170.md)** - Original design specifications
+1. [README.md](./README.md) - Project overview and setup
 
-## 🐛 Troubleshooting
+2. [QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md) - Multiplayer setup guide## Getting Started## 🚀 Getting Started
 
-**Something not working?**
+
+
+## Core Documentation
+
+
+
+| Document | Purpose |**New to the project?****New to the project?** Start here:
+
+|----------|---------|
+
+| [README.md](./README.md) | Main documentation: features, setup, how to play |1. [README.md](./README.md) - Project overview and setup
+
+| [QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md) | Step-by-step multiplayer guide |
+
+| [MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md) | Technical architecture and design |2. [QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md) - Multiplayer setup guide1. **[README.md](./README.md)** - Project overview, features, and basic setup
+
+| [PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md) | Codebase organization |
+
+| [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | Common issues and solutions |2. **[QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md)** - Step-by-step guide to run multiplayer locally
+
+| [IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md) | What was built and why |
+
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Development guide for contributors |## Core Documentation3. **[PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md)** - Understand the codebase organization
+
+| [CHANGELOG.md](./CHANGELOG.md) | Version history |
+
+
+
+## By Task
+
+| Document | Purpose |## 🏗️ Architecture & Design
+
+### Playing the Game
+
+- **Play locally**: README.md → Getting Started|----------|---------|
+
+- **Play multiplayer**: QUICKSTART-MULTIPLAYER.md
+
+- **Fix issues**: TROUBLESHOOTING.md| [README.md](./README.md) | Main documentation: features, setup, how to play |**Want to understand how it works?**
+
+
+
+### Development| [QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md) | Step-by-step multiplayer guide |
+
+- **Set up dev environment**: README.md → Getting Started + CONTRIBUTING.md
+
+- **Understand architecture**: MULTIPLAYER-ARCHITECTURE.md| [MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md) | Technical architecture and design |- **[MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md)** - Deep dive into multiplayer design
+
+- **Navigate codebase**: PROJECT-STRUCTURE.md
+
+- **Add features**: MULTIPLAYER-ARCHITECTURE.md → Event System| [PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md) | Codebase organization |  - Event-driven architecture
+
+- **Contribute code**: CONTRIBUTING.md
+
+| [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | Common issues and solutions |  - Client-side state management
+
+### Deployment
+
+- **Deploy client**: README.md → Building| [IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md) | What was built and why |  - Serialization patterns
+
+- **Deploy relay server**: README.md → Multiplayer Setup
+
+- **Troubleshoot deployment**: TROUBLESHOOTING.md| [CHANGELOG.md](./CHANGELOG.md) | Version history |  - Security considerations
+
+
+
+## Quick Commands  
+
+
+
+```powershell## By Task- **[IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md)** - Complete implementation overview
+
+# Development
+
+npm install  - What was built
+
+node relay-server.js    # Terminal 1
+
+npm run dev             # Terminal 2### Playing the Game  - File changes
+
+
+
+# Testing- **Play locally**: README.md → Getting Started  - Statistics
+
+node test-relay.js
+
+npm run build- **Play multiplayer**: QUICKSTART-MULTIPLAYER.md  - Testing checklist
+
+
+
+# Production- **Fix issues**: TROUBLESHOOTING.md
+
+npm run build
+
+npm run preview## 🎮 Game Rules & Specifications
+
+```
+
+### Development
+
+## Key Files Reference
+
+- **Set up dev environment**: README.md → Getting Started**Need to understand the game itself?**
+
+```
+
+relay-server.js              # WebSocket relay server- **Understand architecture**: MULTIPLAYER-ARCHITECTURE.md
+
+.env                         # Environment configuration
+
+src/routes/+page.svelte      # Main game page- **Navigate codebase**: PROJECT-STRUCTURE.md- **[20251001T142857_high-society-rules_*.md](./20251001T142857_high-society-rules_0b8224f9.md)** - Complete game rules
+
+src/lib/domain/              # Game logic
+
+src/lib/multiplayer/         # Networking- **Add features**: MULTIPLAYER-ARCHITECTURE.md → Event System- **[20251001T141917_high-society-coding-specification_*.md](./20251001T141917_high-society-coding-specification_1a93b170.md)** - Original design specifications
+
+src/lib/components/          # UI components
+
+```
+
+
+
+## Need Help?### Deployment## 🐛 Troubleshooting
+
+
+
+1. Check [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)- **Deploy client**: README.md → Building
+
+2. Review browser console (F12)
+
+3. Check relay server logs- **Deploy relay server**: README.md → Multiplayer Setup**Something not working?**
+
+4. See [CHANGELOG.md](./CHANGELOG.md) for recent changes
+
+- **Troubleshoot deployment**: TROUBLESHOOTING.md
 
 - **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** - Common issues and solutions
-  - Connection problems
+
+## Quick Commands  - Connection problems
+
   - Room issues
-  - Gameplay synchronization
-  - Deployment problems
-  - Mobile/device issues
 
-## 📚 Documentation by Task
+```powershell  - Gameplay synchronization
 
-### I want to...
+# Development  - Deployment problems
 
-#### 🎯 Play the Game
+npm install  - Mobile/device issues
 
-| Task | Documentation |
-|------|---------------|
-| Play locally (hotseat) | [README.md](./README.md) → How to Play |
-| Play online with friends | [QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md) |
+node relay-server.js    # Terminal 1
+
+npm run dev             # Terminal 2## 📚 Documentation by Task
+
+
+
+# Testing### I want to...
+
+node test-relay.js
+
+npm run build#### 🎯 Play the Game
+
+
+
+# Production| Task | Documentation |
+
+npm run build|------|---------------|
+
+npm run preview| Play locally (hotseat) | [README.md](./README.md) → How to Play |
+
+```| Play online with friends | [QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md) |
+
 | Understand game rules | Game rules document |
-| Report a bug | [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) |
 
-#### 💻 Develop
+## Files Reference| Report a bug | [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) |
 
-| Task | Documentation |
-|------|---------------|
-| Set up development environment | [README.md](./README.md) → Getting Started |
-| Understand codebase structure | [PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md) |
-| Add new multiplayer events | [MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md) → Event System |
-| Modify game logic | Design specifications + domain layer code |
+
+
+```#### 💻 Develop
+
+relay-server.js              # WebSocket relay server
+
+.env                         # Environment configuration| Task | Documentation |
+
+src/routes/+page.svelte      # Main game page|------|---------------|
+
+src/lib/domain/              # Game logic| Set up development environment | [README.md](./README.md) → Getting Started |
+
+src/lib/multiplayer/         # Networking| Understand codebase structure | [PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md) |
+
+src/lib/components/          # UI components| Add new multiplayer events | [MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md) → Event System |
+
+```| Modify game logic | Design specifications + domain layer code |
+
 | Add UI components | [PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md) → UI Components |
-| Debug issues | [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) |
 
-#### 🚀 Deploy
+## Need Help?| Debug issues | [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) |
 
-| Task | Documentation |
-|------|---------------|
+
+
+1. Check [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)#### 🚀 Deploy
+
+2. Review browser console (F12)
+
+3. Check relay server logs| Task | Documentation |
+
+4. See [CHANGELOG.md](./CHANGELOG.md) for recent changes|------|---------------|
+
 | Deploy relay server | [README.md](./README.md) → Multiplayer Setup |
 | Deploy game client | [README.md](./README.md) → Building |
 | Configure environment | [README.md](./README.md) → Configuring the Client |

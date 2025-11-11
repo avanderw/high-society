@@ -223,6 +223,65 @@ See `QUICKSTART-MULTIPLAYER.md` for details.
 
 ---
 
+## [1.0.3] - 2025-10-02 - PWA GitHub Pages Fix
+
+### Fixed
+- GitHub Pages subdirectory deployment (`/high-society/`)
+- Service worker base path configuration
+- PWA manifest paths for subdirectory deployment
+- Asset references using SvelteKit placeholders
+
+### Technical Details
+- Configured conditional base path in `svelte.config.js`
+- Updated Vite base URL and PWA paths in `vite.config.ts`
+- Dynamic service worker registration with base path
+- Manifest now correctly references subdirectory paths
+
+---
+
+## [1.0.2] - 2025-10-02 - Bug Fixes
+
+### Fixed
+- **Reactivity Bug**: Multiplayer bid state not clearing between rounds
+  - Changed `deserializeGameState()` to always create new GameState objects
+  - Ensures Svelte 5 reactivity triggers properly on state updates
+  - Added comprehensive tests for serialization and reactivity
+
+- **Service Worker Update Loop**: Infinite update prompts
+  - Changed `skipWaiting: false` → `skipWaiting: true`
+  - Reduced update check interval from 30 to 60 seconds
+  - Added `hasShownPrompt` flag to prevent multiple prompts
+  - Improved controller change handling
+
+### Tests Added
+- `src/tests/reactivity-fix.test.ts` - Reactivity verification
+- `src/tests/multiplayer-sync.test.ts` - Multi-round scenarios
+
+---
+
+## [1.0.1] - 2025-10-02 - PWA Enhancement
+
+### Added
+- Progressive Web App (PWA) support
+- Service worker with Workbox
+- Web app manifest
+- Update prompt component
+- Offline capability
+- Install support for desktop and mobile
+
+### Files Created
+- `src/lib/components/UpdatePrompt.svelte`
+- `icon-generator.html`
+- `PWA-SETUP.md` (deprecated)
+- `PWA-CONVERSION-SUMMARY.md` (deprecated)
+
+### Configuration
+- PWA plugin in `vite.config.ts`
+- Auto-generated service worker
+- Cache strategies for assets
+
+---
+
 ## [1.0.0] - 2025-10-01 - Initial Release
 
 ### Features
