@@ -202,11 +202,9 @@ export function deserializeAuction(data: SerializedAuction, players: Player[]): 
 }
 
 export function deserializeGameState(data: SerializedGameState, originalGameState?: GameState): GameState {
-	// If we have an original game state with the same ID, update it
-	// Otherwise create a new one
-	const gameState = originalGameState && originalGameState.gameId === data.gameId
-		? originalGameState
-		: new GameState(data.gameId);
+	// Always create a new GameState to ensure Svelte reactivity triggers
+	// Reusing the original game state prevents reactivity updates
+	const gameState = new GameState(data.gameId);
 	
 	// Restore players
 	const players = data.players.map(deserializePlayer);

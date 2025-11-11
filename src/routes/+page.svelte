@@ -453,8 +453,23 @@
 			// CLIENT: Sync game state from host
 			console.log('CLIENT: Synchronizing game state from host');
 			try {
+				// Log the current state before deserialization
+				const oldPlayers = gameState.getPlayers();
+				console.log('Before deserialization:', oldPlayers.map(p => 
+					`${p.name}: bid=${p.getCurrentBidAmount()}, played=${p.getPlayedMoney().length}`
+				));
+				
 				const newState = deserializeGameState(event.data.gameState, gameState);
 				gameState = newState;
+				
+				// Log the new state after deserialization
+				const newPlayers = gameState.getPlayers();
+				console.log('After deserialization:', newPlayers.map(p => 
+					`${p.name}: bid=${p.getCurrentBidAmount()}, played=${p.getPlayedMoney().length}`
+				));
+				
+				// Verify player objects are different
+				console.log('Player objects changed:', oldPlayers[0] !== newPlayers[0]);
 				
 				// Handle luxury discard if needed
 				if (event.data.needsLuxuryDiscard) {
