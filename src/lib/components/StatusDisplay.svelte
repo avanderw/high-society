@@ -12,13 +12,16 @@
 
 	const calculator = new StatusCalculator();
 
-	const playerStatuses = $derived(
-		updateKey >= 0 ? players.map(player => ({
+	// Force reactivity by ensuring derived depends on updateKey
+	const playerStatuses = $derived.by(() => {
+		// This forces the derived to re-run when updateKey changes
+		const _ = updateKey;
+		return players.map(player => ({
 			player,
 			currentStatus: calculator.calculate(player.getStatusCards()),
 			statusCards: player.getStatusCards()
-		})) : []
-	);
+		}));
+	});
 </script>
 
 <article>

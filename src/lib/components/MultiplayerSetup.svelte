@@ -20,6 +20,20 @@
 
 	const multiplayerService = getMultiplayerService();
 
+	// Random name generator
+	const randomNames = [
+		'Baron von Bling', 'Duchess Diamond', 'Count Cashmore', 'Lady Luxe',
+		'Sir Spendwell', 'Princess Prestige', 'Duke Dapper', 'Madame Moneybags',
+		'Lord Lavish', 'Baroness Bling', 'Captain Cash', 'Miss Fortune',
+		'Earl Elegant', 'Countess Couture', 'Sir Status', 'Lady Lush',
+		'Baron Bountiful', 'Duchess Decadent', 'Lord Luxury', 'Miss Magnificent'
+	];
+
+	function generateRandomName() {
+		const randomIndex = Math.floor(Math.random() * randomNames.length);
+		playerName = randomNames[randomIndex];
+	}
+
 	async function createRoom() {
 		if (!playerName.trim()) {
 			errorMessage = 'Please enter your name';
@@ -197,12 +211,23 @@
 		<div>
 			<label>
 				Your Name
-				<input 
-					type="text" 
-					bind:value={playerName}
-					placeholder="Enter your name"
-					disabled={isConnecting}
-				/>
+				<div class="name-input-group">
+					<input 
+						type="text" 
+						bind:value={playerName}
+						placeholder="Enter your name"
+						disabled={isConnecting}
+					/>
+					<button 
+						type="button"
+						onclick={generateRandomName}
+						class="secondary random-button"
+						disabled={isConnecting}
+						title="Generate random name"
+					>
+						🎲
+					</button>
+				</div>
 			</label>
 
 			<div class="button-group">
@@ -227,13 +252,13 @@
 			<div class="room-code-display">
 				<h3>Room Code</h3>
 				<div class="code-box">
-					<code>{currentRoomId}</code>
+					<code class="room-code">{currentRoomId}</code>
 					<button 
 						onclick={copyRoomCode}
-						class="secondary"
+						class="secondary copy-button"
 						title="Copy to clipboard"
 					>
-						📋 Copy
+						📋
 					</button>
 				</div>
 				<p class="help-text">Share this code with other players</p>
@@ -277,12 +302,23 @@
 		<div>
 			<label>
 				Your Name
-				<input 
-					type="text" 
-					bind:value={playerName}
-					placeholder="Enter your name"
-					disabled={isConnecting}
-				/>
+				<div class="name-input-group">
+					<input 
+						type="text" 
+						bind:value={playerName}
+						placeholder="Enter your name"
+						disabled={isConnecting}
+					/>
+					<button 
+						type="button"
+						onclick={generateRandomName}
+						class="secondary random-button"
+						disabled={isConnecting}
+						title="Generate random name"
+					>
+						🎲
+					</button>
+				</div>
 			</label>
 
 			<label>
@@ -348,6 +384,24 @@
 		text-align: center;
 	}
 
+	.name-input-group {
+		display: flex;
+		gap: 0.5rem;
+		align-items: stretch;
+	}
+
+	.name-input-group input {
+		flex: 1;
+		margin: 0;
+	}
+
+	.random-button {
+		margin: 0;
+		padding: 0.5rem 1rem;
+		font-size: 1.2rem;
+		min-width: auto;
+	}
+
 	.button-group {
 		display: flex;
 		gap: 1rem;
@@ -374,24 +428,53 @@
 
 	.code-box {
 		display: flex;
-		align-items: center;
+		align-items: stretch;
 		justify-content: center;
-		gap: 1rem;
+		gap: 0.5rem;
 		margin: 1rem 0;
+		flex-wrap: wrap;
 	}
 
-	.code-box code {
-		font-size: 2rem;
+	.code-box .room-code {
+		font-size: clamp(1.5rem, 5vw, 2rem);
 		font-weight: bold;
-		padding: 0.5rem 1rem;
+		padding: 1rem;
 		background-color: var(--pico-code-background-color);
 		border-radius: var(--pico-border-radius);
 		letter-spacing: 0.2em;
+		flex: 1;
+		min-width: 200px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		word-break: break-all;
+		user-select: all;
 	}
 
-	.code-box button {
+	.copy-button {
 		margin: 0;
-		padding: 0.5rem 1rem;
+		padding: 1rem;
+		font-size: 1.5rem;
+		min-width: auto;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	/* Mobile optimization */
+	@media (max-width: 576px) {
+		.code-box {
+			flex-direction: column;
+		}
+
+		.code-box .room-code {
+			font-size: 1.75rem;
+			padding: 1.25rem;
+		}
+
+		.copy-button {
+			width: 100%;
+		}
 	}
 
 	.help-text {
