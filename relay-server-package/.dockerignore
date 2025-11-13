@@ -1,0 +1,68 @@
+# Node modules (will be installed in container)
+node_modules/
+
+# Development files
+.git/
+.gitignore
+.github/
+.vscode/
+
+# Documentation
+*.md
+!README.md
+
+# Test files
+src/tests/
+*.test.ts
+*.test.js
+vitest.config.ts
+
+# Build artifacts
+build/
+dist/
+.svelte-kit/
+
+# Source files (not needed for relay server)
+src/
+static/
+
+# Config files not needed in production
+svelte.config.js
+vite.config.ts
+tsconfig.json
+.prettierrc
+.eslintrc*
+
+# Environment files (use Docker env vars instead)
+.env
+.env.*
+
+# Temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+
+# Scripts and tools
+*.ps1
+*.mjs
+*.html
+test-relay.js
+generate-icons.mjs
+icon-generator.html
+fix-corruption.ps1
+
+# Other project files
+todo.txt
+CHANGELOG.md
+CONTRIBUTING.md
+DOCUMENTATION-*.md
+IMPLEMENTATION-SUMMARY.md
+MULTIPLAYER-ARCHITECTURE.md
+PROJECT-STRUCTURE.md
+QUICKSTART-MULTIPLAYER.md
+TEST-ISSUES-SUMMARY.md
+TROUBLESHOOTING.md
+*.webmanifest

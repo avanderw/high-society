@@ -82,6 +82,25 @@ PORT=8080 node relay-server.js
 CORS_ORIGIN=https://yourdomain.com node relay-server.js
 ```
 
+### Deploying the Relay Server
+
+To deploy the relay server to a Docker environment on another machine:
+
+```sh
+# Package the relay server for deployment
+npm run package:relay
+
+# Or with options
+node package-relay-server.js --output ./my-package --include-env
+```
+
+This creates a deployment package with:
+- All necessary files (relay-server.js, Dockerfile, docker-compose.yml, etc.)
+- A compressed ZIP file for easy transfer
+- README.txt with quick deployment instructions
+
+Copy the generated ZIP file to your Docker host and see **[DEPLOY-RELAY-SERVER.md](./DEPLOY-RELAY-SERVER.md)** for complete deployment instructions.
+
 ### Configuring the Client
 
 Create a `.env` file in the project root:

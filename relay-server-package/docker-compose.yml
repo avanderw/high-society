@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  relay-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: high-society-relay
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    environment:
+      # Server port (internal)
+      - PORT=3000
+      # CORS origin - set this to your Svelte app URL
+      # Use '*' for development, specific URL for production
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      # Node environment
+      - NODE_ENV=production
+    restart: unless-stopped
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/socket.io/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
