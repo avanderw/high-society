@@ -23,7 +23,12 @@ Common issues and their solutions when running the multiplayer version of High S
    node relay-server.js
    ```
 
-2. **Verify server URL in .env**
+2. **Verify server URL detection**
+   The client automatically detects the relay server URL:
+   - `localhost` → `http://localhost:3000`
+   - `avanderw.co.za` → `https://high-society.avanderw.co.za`
+   
+   To override, create/edit `.env`:
    ```env
    VITE_SOCKET_SERVER_URL=http://localhost:3000
    ```
@@ -343,7 +348,9 @@ Common issues and their solutions when running the multiplayer version of High S
 2. **Use HTTPS for production**
    - WebSocket over HTTP may be blocked
    - Deploy relay server with SSL certificate
-   - Update client URL:
+   - The client auto-detects URLs for known domains:
+     - `avanderw.co.za` → `https://high-society.avanderw.co.za`
+   - For custom domains, set `.env`:
    ```env
    VITE_SOCKET_SERVER_URL=https://your-relay-server.com
    ```

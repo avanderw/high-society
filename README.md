@@ -103,13 +103,15 @@ Copy the generated ZIP file to your Docker host and see **[DEPLOY-RELAY-SERVER.m
 
 ### Configuring the Client
 
-Create a `.env` file in the project root:
+The client automatically detects the relay server URL based on the hostname:
+- On `localhost`: connects to `http://localhost:3000`
+- On `avanderw.co.za`: connects to `https://high-society.avanderw.co.za`
+
+To override automatic detection, create a `.env` file in the project root:
 
 ```env
 VITE_SOCKET_SERVER_URL=http://localhost:3000
 ```
-
-For production, update this to your deployed relay server URL.
 
 ### Playing Multiplayer
 

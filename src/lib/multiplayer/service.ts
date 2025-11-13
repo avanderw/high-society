@@ -395,10 +395,36 @@ export class MultiplayerService {
 // Singleton instance
 let multiplayerService: MultiplayerService | null = null;
 
+/**
+ * Determine the relay server URL based on the current hostname
+ */
+function getRelayServerUrl(): string {
+	// Check for explicit environment variable first
+	if (import.meta.env.VITE_SOCKET_SERVER_URL) {
+		return import.meta.env.VITE_SOCKET_SERVER_URL;
+	}
+
+	// Check if running in browser
+	if (typeof window === 'undefined') {
+		return 'http://localhost:3000';
+	}
+
+	const hostname = window.location.hostname;
+	
+	// If on production domain, use production relay server
+	if (hostname === 'avanderw.co.za' || hostname.endsWith('.avanderw.co.za')) {
+		return 'https://high-society.avanderw.co.za';
+	}
+	
+	// Default to localhost for local development
+	return 'http://localhost:3000';
+}
+
 export function getMultiplayerService(serverUrl?: string): MultiplayerService {
 	if (!multiplayerService) {
-		const url = serverUrl || import.meta.env.VITE_SOCKET_SERVER_URL || 'http://localhost:3000';
+		const url = serverUrl || getRelayServerUrl();
 		console.log('[Multiplayer] Initializing service with URL:', url);
+		console.log('[Multiplayer] Hostname:', typeof window !== 'undefined' ? window.location.hostname : 'SSR');
 		console.log('[Multiplayer] Environment variable:', import.meta.env.VITE_SOCKET_SERVER_URL);
 		multiplayerService = new MultiplayerService(url);
 	}

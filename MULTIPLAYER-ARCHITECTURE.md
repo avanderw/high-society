@@ -44,7 +44,11 @@ Manages connection and communication with the Socket.IO server:
 - `off(eventType, callback)` - Unregister event handler
 
 **Configuration:**
-Set the server URL via environment variable:
+The client automatically detects the relay server URL based on hostname:
+- `localhost` → `http://localhost:3000`
+- `avanderw.co.za` → `https://high-society.avanderw.co.za`
+
+Override via environment variable if needed:
 ```
 VITE_SOCKET_SERVER_URL=http://localhost:3000
 ```

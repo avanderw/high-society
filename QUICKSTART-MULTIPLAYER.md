@@ -111,7 +111,10 @@ The game will start at `http://localhost:5173`
 ### "Failed to connect to server"
 - Make sure the relay server is running (`node relay-server.js`)
 - Check that port 3000 isn't being used by another program
-- Verify `.env` file has `VITE_SOCKET_SERVER_URL=http://localhost:3000`
+- The client automatically detects the relay server URL:
+  - On `localhost`: uses `http://localhost:3000`
+  - On `avanderw.co.za`: uses `https://high-society.avanderw.co.za`
+- You can override this by setting `VITE_SOCKET_SERVER_URL` in `.env`
 
 ### "Room not found"
 - Double-check the room code (case-sensitive)
@@ -141,8 +144,11 @@ For playing with friends not on your local network, you'll need to:
    - Heroku, Railway, Fly.io, or any Node.js hosting
    - Or use ngrok for temporary testing: `ngrok http 3000`
 
-2. **Update the client** to point to your server:
-   - Edit `.env` file: `VITE_SOCKET_SERVER_URL=https://your-server.com`
+2. **Configure the client** (if needed):
+   - The client automatically detects relay servers:
+     - `localhost` → `http://localhost:3000`
+     - `avanderw.co.za` → `https://high-society.avanderw.co.za`
+   - For custom domains, edit `.env`: `VITE_SOCKET_SERVER_URL=https://your-server.com`
    - Restart the dev server (`npm run dev`)
 
 3. **Share your game URL** with friends:
@@ -181,7 +187,11 @@ npm run build
 # - Any static hosting
 ```
 
-Update `.env` before building:
+The client automatically detects relay server URLs based on hostname:
+- `localhost` → `http://localhost:3000`
+- `avanderw.co.za` → `https://high-society.avanderw.co.za`
+
+For custom domains, set `.env` before building:
 ```env
 VITE_SOCKET_SERVER_URL=https://your-relay-server.com
 ```
