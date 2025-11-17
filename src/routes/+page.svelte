@@ -15,6 +15,7 @@
 	import UpdatePrompt from '$lib/components/UpdatePrompt.svelte';
 	
 	import { Target, Clock, Wifi, WifiOff } from 'lucide-svelte';
+	import { page } from '$app/stores';
 	
 	import { getMultiplayerService } from '$lib/multiplayer/service';
 	import { GameEventType, type GameEvent } from '$lib/multiplayer/events';
@@ -24,6 +25,7 @@
 	let roomId = $state('');
 	let myPlayerId = $state('');
 	let myPlayerName = $state('');
+	let hostPlayerId = $state(''); // Track who is the host (creator of the room)
 	let isHost = $state(false);
 	let inLobby = $state(true); // true = in lobby/setup, false = in game
 	let lobbyPlayers = $state<Array<{ playerId: string; playerName: string }>>([]);
@@ -115,6 +117,52 @@
 		return true;
 	}
 
+	// Save game state to sessionStorage for recovery after refresh
+	function saveGameStateToStorage() {
+		if (gameState && roomId) {
+			try {
+				const serialized = serializeGameState(gameState);
+				const stateData = {
+					serializedState: serialized,
+					playerMapping: Array.from(playerIdToGameIndex.entries()),
+					timestamp: Date.now()
+				};
+				sessionStorage.setItem(`highsociety_gamestate_${roomId}`, JSON.stringify(stateData));
+				console.log('Game state saved to sessionStorage');
+			} catch (error) {
+				console.error('Failed to save game state:', error);
+			}
+		}
+	}
+
+	// Restore game state from sessionStorage after refresh
+	function restoreGameStateFromStorage(): boolean {
+		if (roomId) {
+			try {
+				const stored = sessionStorage.getItem(`highsociety_gamestate_${roomId}`);
+				if (stored) {
+					const stateData = JSON.parse(stored);
+					// Only restore if less than 1 hour old
+					if (Date.now() - stateData.timestamp < 60 * 60 * 1000) {
+						const game = new GameState('game-' + Date.now());
+						const playerNames = lobbyPlayers.map(p => p.playerName);
+						game.initializeGame(playerNames);
+						gameState = deserializeGameState(stateData.serializedState, game);
+						
+						// Restore player mapping
+						playerIdToGameIndex = new Map(stateData.playerMapping);
+						
+						console.log('Game state restored from sessionStorage');
+						return true;
+					}
+				}
+			} catch (error) {
+				console.error('Failed to restore game state:', error);
+			}
+		}
+		return false;
+	}
+
 	function startGame(playerNames: string[]) {
 		try {
 			const game = new GameState('game-' + Date.now());
@@ -187,6 +235,8 @@
 	function startGameAsClient(event: GameEvent) {
 		console.log('=== CLIENT: RECEIVING GAME STATE FROM HOST ===');
 		console.log('Event data:', event.data);
+		console.log('Before startGameAsClient - gameState exists:', !!gameState);
+		console.log('Before startGameAsClient - inLobby:', inLobby);
 		
 		if (!event.data || !event.data.initialState || !event.data.players) {
 			console.error('Invalid GAME_STARTED event data');
@@ -205,7 +255,10 @@
 			// Apply the serialized state from host
 			console.log('CLIENT: Deserializing game state from host');
 			const deserializedState = deserializeGameState(event.data.initialState, game);
+			console.log('CLIENT: Deserialized state phase:', deserializedState.getCurrentPhase());
+			
 			gameState = deserializedState;
+			console.log('CLIENT: Set gameState, now gameState exists:', !!gameState);
 			
 			// Build player ID mapping from received data
 			if (event.data.playerMapping) {
@@ -222,8 +275,12 @@
 			inLobby = false;
 			
 			console.log('CLIENT: Game state synchronized successfully');
+			console.log('CLIENT: After sync - gameState exists:', !!gameState);
+			console.log('CLIENT: After sync - inLobby:', inLobby);
+			console.log('CLIENT: After sync - updateCounter:', updateCounter);
 		} catch (error) {
 			console.error('CLIENT: Failed to initialize game:', error);
+			console.error('CLIENT: Error stack:', error);
 			errorMessage = 'Failed to sync game state: ' + (error instanceof Error ? error.message : 'Unknown error');
 		}
 	}
@@ -241,6 +298,14 @@
 		isHost = isHostParam;
 		lobbyPlayers = players;
 		inLobby = true;
+		
+		// Store the host player ID (first player is always the host/creator)
+		if (players.length > 0) {
+			hostPlayerId = players[0].playerId;
+			console.log('Host player ID set to:', hostPlayerId);
+			// Save to session storage so it persists across rejoins
+			multiplayerService.updateHostPlayerId(hostPlayerId);
+		}
 		
 		// Setup event listeners (idempotent - won't duplicate)
 		setupMultiplayerListeners();
@@ -298,9 +363,11 @@
 			console.log('My Role - Is Host:', isHost);
 			console.log('My Player ID:', myPlayerId);
 			console.log('Event timestamp:', event.timestamp);
+			console.log('Current inLobby state:', inLobby);
 			
 			// Prevent duplicate processing
 			if (!shouldProcessEvent('GAME_STARTED', event.timestamp)) {
+				console.log('Skipping duplicate GAME_STARTED event');
 				return;
 			}
 			
@@ -311,11 +378,69 @@
 			}
 			
 			// CLIENT: Initialize game from host's state
-			console.log('CLIENT: Processing GAME_STARTED event');
+			console.log('CLIENT: Processing GAME_STARTED event - will call startGameAsClient');
 			startGameAsClient(event);
+			console.log('CLIENT: After startGameAsClient, inLobby =', inLobby);
 		});
 		
 		console.log('GAME_STARTED listener registered');
+		
+		// ============================================================
+		// STATE_SYNC EVENT - Handle state sync requests from rejoining players
+		// ============================================================
+		multiplayerService.on(GameEventType.STATE_SYNC, (event: GameEvent) => {
+			console.log('=== STATE_SYNC REQUEST RECEIVED ===');
+			console.log('Requester:', event.data?.requesterName);
+			console.log('Requester ID:', event.data?.requesterId);
+			console.log('My Role - Is Host:', isHost);
+			console.log('Do I have gameState?', !!gameState);
+			console.log('Current phase:', gameState?.getCurrentPhase());
+			
+			// Skip if it's our own request
+			if (event.data?.requesterId === myPlayerId) {
+				console.log('Ignoring my own STATE_SYNC request');
+				return;
+			}
+			
+			// Any player with game state can respond (prefer host, but allow any player as backup)
+			// This ensures state can be recovered even if host disconnects/refreshes
+			if (gameState && gameState.getCurrentPhase() !== GamePhase.SETUP) {
+				// Capture gameState in closure before setTimeout
+				const currentGameState = gameState;
+				
+				// Add a small delay for non-hosts to let the host respond first
+				const responseDelay = isHost ? 0 : 500;
+				
+				setTimeout(() => {
+					console.log(isHost ? 'HOST: Sending current game state to rejoining player' : 'CLIENT: Sending current game state as backup');
+					
+					const gamePlayers = currentGameState.getPlayers();
+					const playerMapping = lobbyPlayers.map((lobbyPlayer, index) => ({
+						multiplayerId: lobbyPlayer.playerId,
+						gamePlayerIndex: index,
+						playerName: gamePlayers[index]?.name || lobbyPlayer.playerName
+					}));
+					
+					const eventData = {
+						players: gamePlayers.map((p, i) => ({ 
+							id: p.id, 
+							name: p.name 
+						})),
+						initialState: serializeGameState(currentGameState),
+						playerMapping: playerMapping
+					};
+					
+					// Send GAME_STARTED event to sync the rejoining player
+					console.log('Broadcasting GAME_STARTED with player mapping:', playerMapping);
+					multiplayerService.broadcastEvent(GameEventType.GAME_STARTED, eventData);
+					console.log('GAME_STARTED broadcast complete');
+				}, responseDelay);
+			} else {
+				console.log('No active game to sync (phase is SETUP or no gameState)');
+			}
+		});
+		
+		console.log('STATE_SYNC listener registered');
 		
 		// ============================================================
 		// GAME_RESTART_REQUESTED EVENT - Host requests restart, clients show join button
@@ -936,6 +1061,7 @@
 		roomId = '';
 		myPlayerId = '';
 		myPlayerName = '';
+		hostPlayerId = '';
 		isHost = false;
 		inLobby = true;
 		lobbyPlayers = [];
@@ -966,6 +1092,7 @@
 		roomId = '';
 		myPlayerId = '';
 		myPlayerName = '';
+		hostPlayerId = '';
 		isHost = false;
 		inLobby = true;
 		lobbyPlayers = [];
@@ -986,14 +1113,82 @@
 			// Update state with rejoined room info
 			roomId = result.roomId;
 			myPlayerId = result.playerId;
+			myPlayerName = multiplayerService.getPreviousSession()?.playerName || '';
 			lobbyPlayers = result.players;
 			showRejoinPrompt = false;
 			isRejoining = false;
 			
 			console.log('Successfully rejoined room:', roomId);
+			console.log('Current lobby players:', lobbyPlayers);
 			
-			// If we were in a game, the existing game state should still be valid
-			// The connection status will automatically update
+			// Re-setup multiplayer listeners if needed
+			if (!listenersRegistered) {
+				setupMultiplayerListeners();
+			}
+			
+			// Restore host player ID from session storage
+			const session = multiplayerService.getPreviousSession();
+			if (session?.hostPlayerId) {
+				hostPlayerId = session.hostPlayerId;
+				console.log('Host player ID restored from session:', hostPlayerId);
+			} else if (!hostPlayerId && lobbyPlayers.length > 0) {
+				// Fallback: assume the first player in the lobby is the host
+				hostPlayerId = lobbyPlayers[0].playerId;
+				console.log('Host player ID determined from lobby (fallback):', hostPlayerId);
+				multiplayerService.updateHostPlayerId(hostPlayerId);
+			}
+			
+			// Check if we're the host
+			isHost = hostPlayerId === myPlayerId;
+			console.log('Am I the host?', isHost, '(my ID:', myPlayerId, ', host ID:', hostPlayerId, ')');
+			
+			// Try to restore game state from sessionStorage first
+			const restoredFromStorage = restoreGameStateFromStorage();
+			
+			// If we have game state (either from memory or storage), we were in an active game
+			if (gameState && gameState.getCurrentPhase() !== GamePhase.SETUP) {
+				inLobby = false;
+				console.log('Rejoined active game, staying in game view');
+				
+				// If we're the host and restored from storage, broadcast to sync other players
+				if (isHost && restoredFromStorage) {
+					console.log('HOST: Broadcasting restored game state to other players');
+					const gamePlayers = gameState.getPlayers();
+					const playerMapping = lobbyPlayers.map((lobbyPlayer, index) => ({
+						multiplayerId: lobbyPlayer.playerId,
+						gamePlayerIndex: index,
+						playerName: gamePlayers[index]?.name || lobbyPlayer.playerName
+					}));
+					
+					const eventData = {
+						players: gamePlayers.map((p, i) => ({ 
+							id: p.id, 
+							name: p.name 
+						})),
+						initialState: serializeGameState(gameState),
+						playerMapping: playerMapping
+					};
+					
+					multiplayerService.broadcastEvent(GameEventType.GAME_STARTED, eventData);
+				}
+				
+				// Force UI update
+				updateCounter++;
+		} else {
+			// We don't have game state locally, but the room might have an active game
+			// Request game state from other players via STATE_SYNC event
+			console.log('No local game state, requesting sync from other players');
+			console.log('Am I host?', isHost);
+			multiplayerService.broadcastEvent(GameEventType.STATE_SYNC, {
+				requesterId: myPlayerId,
+				requesterName: myPlayerName
+			});
+			
+			// Stay in lobby temporarily - will be switched to game view when GAME_STARTED arrives
+			// But if no game is active, we'll remain in lobby
+			inLobby = true;
+			console.log('Waiting in lobby for STATE_SYNC response...');
+		}			// The connection status will automatically update
 		} catch (error) {
 			rejoinError = error instanceof Error ? error.message : 'Failed to rejoin room';
 			isRejoining = false;
@@ -1065,6 +1260,13 @@
 		}
 	});
 
+	// Auto-save game state to sessionStorage whenever it changes
+	$effect(() => {
+		if (gameState && roomId && gameState.getCurrentPhase() !== GamePhase.SETUP) {
+			saveGameStateToStorage();
+		}
+	});
+
 	// Monitor connection status and show rejoin prompt if disconnected
 	$effect(() => {
 		const isConnected = multiplayerService.isConnected();
@@ -1086,6 +1288,30 @@
 		if (currentPlayerObj) {
 			// Clear any selected cards when player changes
 			selectedMoneyCards = [];
+		}
+	});
+
+	// Warn before leaving an active game
+	$effect(() => {
+		const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+			// Only warn if we have an active game (not in lobby, not finished)
+			if (gameState && 
+			    !inLobby && 
+			    currentPhase !== GamePhase.SCORING && 
+			    currentPhase !== GamePhase.FINISHED) {
+				e.preventDefault();
+				// Modern browsers ignore custom messages, but we still need to set returnValue
+				e.returnValue = '';
+				return '';
+			}
+		};
+
+		if (typeof window !== 'undefined') {
+			window.addEventListener('beforeunload', handleBeforeUnload);
+			
+			return () => {
+				window.removeEventListener('beforeunload', handleBeforeUnload);
+			};
 		}
 	});
 </script>
@@ -1128,9 +1354,37 @@
 
 	{#if !gameState && !roomId}
 		<!-- Multiplayer Setup - Creating or joining room -->
-		<MultiplayerSetup onRoomReady={handleMultiplayerRoomReady} />
+		<article class="game-intro">
+			<header>
+				<h2>Welcome to High Society</h2>
+			</header>
+			<section>
+				<p>
+					<strong>High Society</strong> is an auction card game designed by Reiner Knizia where you play as wealthy socialites 
+					competing to acquire the most luxurious items and prestigious status symbols.
+				</p>
+				<p>
+					<strong>The catch?</strong> You must avoid going broke! At the end of the game, the player with the least money 
+					is cast out of high society and cannot win — no matter how many luxury items they've acquired.
+				</p>
+				<p>
+					<strong>Gameplay:</strong> Each round, a status card is revealed. Players bid using their money cards to win luxury items 
+					and prestige multipliers, while avoiding disgrace cards. The game ends when the 4th special trigger card appears.
+				</p>
+				<div class="rules-link">
+					<small>
+						Learn the full rules in the 
+						<a href="https://github.com/avanderw/high-society/blob/main/20251001T142857_high-society-rules_0b8224f9.md" target="_blank" rel="noopener noreferrer">
+							game documentation
+						</a>
+					</small>
+				</div>
+			</section>
+		</article>
+		
+		<MultiplayerSetup onRoomReady={handleMultiplayerRoomReady} initialRoomCode={$page.url.searchParams.get('room') || ''} />
 	{:else if !gameState && roomId}
-		<!-- Multiplayer Lobby - Waiting for game to start -->
+		<!-- Multiplayer Lobby - Waiting for game to start or rejoin active game -->
 		<article class="multiplayer-lobby">
 			<header>
 				<h2>Multiplayer Lobby</h2>
@@ -1163,6 +1417,9 @@
 							{#if player.playerId === lobbyPlayers[0]?.playerId}
 								<span class="badge-host">Host</span>
 							{/if}
+							{#if !connectedPlayerIds.has(player.playerId)}
+								<span class="badge-disconnected">Offline</span>
+							{/if}
 						</li>
 					{/each}
 				</ul>
@@ -1184,8 +1441,9 @@
 				</div>
 			{:else}
 				<div class="waiting-message">
-					<p>? Waiting for the host to start the game...</p>
+					<p>? Waiting for the game to start or sync...</p>
 					<progress></progress>
+					<small class="help-text">If the game is already active, you'll join automatically</small>
 				</div>
 			{/if}
 
@@ -1919,6 +2177,17 @@
 		font-weight: bold;
 	}
 
+	.badge-disconnected {
+		display: inline-block;
+		padding: 0.25rem 0.5rem;
+		background-color: var(--pico-muted-color);
+		color: var(--pico-contrast);
+		border-radius: var(--pico-border-radius);
+		font-size: 0.75rem;
+		font-weight: bold;
+		opacity: 0.7;
+	}
+
 	.waiting-message {
 		text-align: center;
 		margin: 2rem 0;
@@ -2074,5 +2343,39 @@
 	.rejoin-modal .button-group button {
 		flex: 1;
 		margin: 0;
+	}
+
+	/* Game Intro Styles */
+	.game-intro {
+		max-width: 700px;
+		margin: 0 auto 2rem auto;
+		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(var(--pico-primary-rgb, 128, 128, 255), 0.05) 100%);
+		border: 2px solid var(--pico-primary);
+	}
+
+	.game-intro p {
+		margin-bottom: 1rem;
+		line-height: 1.6;
+	}
+
+	.game-intro strong {
+		color: var(--pico-primary);
+	}
+
+	.rules-link {
+		margin-top: 1.5rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--pico-muted-border-color);
+		text-align: center;
+	}
+
+	.rules-link a {
+		color: var(--pico-primary);
+		text-decoration: underline;
+		font-weight: 500;
+	}
+
+	.rules-link a:hover {
+		color: var(--pico-primary-hover);
 	}
 </style>

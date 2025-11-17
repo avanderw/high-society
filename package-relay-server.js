@@ -276,6 +276,12 @@ Generated on: ${now}
     const archiveSizeKB = (archiveSize / 1024).toFixed(2);
     log(`  ✓ Created: ${archivePath}`, 'green');
     log(`  ✓ Archive size: ${archiveSizeKB} KB`, 'green');
+    
+    // Clean up directory after successful archive creation
+    log('', 'white');
+    log('🧹 Cleaning up temporary directory...', 'yellow');
+    await rm(outputPath, { recursive: true, force: true });
+    log(`  ✓ Removed: ${outputPath}`, 'green');
   } catch (error) {
     log(`  ⚠ Failed to create archive: ${error.message}`, 'yellow');
     log('  Files are still available in: ' + outputPath, 'yellow');
@@ -286,21 +292,17 @@ Generated on: ${now}
   log('✅ Package created successfully!', 'green');
   log('', 'white');
   log('📦 Package location:', 'cyan');
-  log(`   Directory: ${outputPath}`, 'white');
   if (existsSync(archivePath)) {
     log(`   Archive:   ${archivePath}`, 'white');
+  } else {
+    log(`   Directory: ${outputPath}`, 'white');
   }
   log('', 'white');
   log('📤 Next steps:', 'cyan');
-  log('   1. Copy the package to your Docker host machine', 'white');
+  log('   1. Copy the ZIP file to your Docker host machine', 'white');
   log('   2. Extract and follow instructions in README.txt', 'white');
   log('   3. Run: docker-compose up -d', 'white');
   log('', 'white');
-
-  // Calculate package size
-  const packageSize = await getDirectorySize(outputPath);
-  const sizeKB = (packageSize / 1024).toFixed(2);
-  log(`📊 Package size: ${sizeKB} KB`, 'cyan');
 
   log('', 'white');
   log('🎉 Done!', 'green');

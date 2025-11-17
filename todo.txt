@@ -1,6 +1,4 @@
-Add randomizer to the name field during game setup
-Fix cards remaining count not being in sync between players
-Add a status screen when an action completes showing who took what card
-Keep the money cards / pools sorted
-Make the join code mobile friendly
-Fix the score being rounded up, e.g. 1 % 2 = 1 not 0 in player status area
+Fix rejoin functionality so that you enter the game and not the lobby if the game is active, the host is not in the lobby to start the game, they should just auto join when the game is active.
+I need to update the game to be more mobile friendly, there is too much scrolling
+There is no indication of your current bid when waiting or what the other bid composition is when waiting
+Is there a way to prevent a mobile screen from darkening when there is no interaction

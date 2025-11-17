@@ -15,7 +15,7 @@ export class MultiplayerService {
 	private connected: boolean = false;
 	
 	// Store previous session for rejoin
-	private previousSession: { roomId: string; playerId: string; playerName: string } | null = null;
+	private previousSession: { roomId: string; playerId: string; playerName: string; hostPlayerId?: string } | null = null;
 
 	constructor(private serverUrl: string) {
 		// Try to restore previous session from localStorage
@@ -25,16 +25,22 @@ export class MultiplayerService {
 	/**
 	 * Save session to localStorage for rejoin capability
 	 */
-	private saveSession(): void {
+	private saveSession(hostPlayerId?: string): void {
 		if (this.roomId && this.playerId && this.playerName) {
 			const session = {
 				roomId: this.roomId,
 				playerId: this.playerId,
 				playerName: this.playerName,
+				hostPlayerId: hostPlayerId || this.previousSession?.hostPlayerId,
 				timestamp: Date.now()
 			};
 			localStorage.setItem('highsociety_session', JSON.stringify(session));
-			this.previousSession = { roomId: this.roomId, playerId: this.playerId, playerName: this.playerName };
+			this.previousSession = { 
+				roomId: this.roomId, 
+				playerId: this.playerId, 
+				playerName: this.playerName,
+				hostPlayerId: session.hostPlayerId
+			};
 		}
 	}
 
@@ -51,7 +57,8 @@ export class MultiplayerService {
 					this.previousSession = {
 						roomId: session.roomId,
 						playerId: session.playerId,
-						playerName: session.playerName
+						playerName: session.playerName,
+						hostPlayerId: session.hostPlayerId
 					};
 				} else {
 					localStorage.removeItem('highsociety_session');
@@ -80,8 +87,15 @@ export class MultiplayerService {
 	/**
 	 * Get previous session info
 	 */
-	getPreviousSession(): { roomId: string; playerId: string; playerName: string } | null {
+	getPreviousSession(): { roomId: string; playerId: string; playerName: string; hostPlayerId?: string } | null {
 		return this.previousSession;
+	}
+
+	/**
+	 * Update the host player ID in the current session
+	 */
+	updateHostPlayerId(hostPlayerId: string): void {
+		this.saveSession(hostPlayerId);
 	}
 
 	/**

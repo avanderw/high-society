@@ -2,17 +2,17 @@
 	import { getMultiplayerService } from '$lib/multiplayer/service';
 	import { GameEventType, type GameEvent } from '$lib/multiplayer/events';
 	import { normalizeRoomCode, isValidRoomCode } from '$lib/multiplayer/wordlist';
-	import { onMount } from 'svelte';
 	
 	type Props = {
 		onRoomReady: (roomId: string, playerId: string, playerName: string, isHost: boolean, players: Array<{ playerId: string; playerName: string }>) => void;
+		initialRoomCode?: string;
 	};
 	
-	let { onRoomReady }: Props = $props();
+	let { onRoomReady, initialRoomCode = '' }: Props = $props();
 	
-	let mode = $state<'menu' | 'create' | 'join'>('menu');
+	let mode = $state<'menu' | 'create' | 'join'>(initialRoomCode ? 'join' : 'menu');
 	let playerName = $state('');
-	let roomCode = $state('');
+	let roomCode = $state(initialRoomCode);
 	let isConnecting = $state(false);
 	let errorMessage = $state('');
 	let connectedPlayers = $state<Array<{ playerId: string; playerName: string }>>([]);
@@ -78,38 +78,6 @@
 	// Generate initial placeholder name
 	generateRandomPlaceholder();
 
-	// Auto-populate room code from clipboard when switching to join mode
-	onMount(async () => {
-		// Try to read clipboard when component mounts or mode changes
-		try {
-			const clipboardText = await navigator.clipboard.readText();
-			const normalizedCode = normalizeRoomCode(clipboardText);
-			if (isValidRoomCode(normalizedCode)) {
-				roomCode = normalizedCode;
-			}
-		} catch (err) {
-			// Clipboard access may be denied, silently ignore
-			console.log('Could not read clipboard:', err);
-		}
-	});
-
-	// Watch for mode changes to auto-populate clipboard
-	$effect(() => {
-		if (mode === 'join' && !roomCode) {
-			// Try to auto-populate from clipboard when switching to join mode
-			navigator.clipboard.readText()
-				.then(clipboardText => {
-					const normalizedCode = normalizeRoomCode(clipboardText);
-					if (isValidRoomCode(normalizedCode)) {
-						roomCode = normalizedCode;
-					}
-				})
-				.catch(() => {
-					// Silently ignore clipboard errors
-				});
-		}
-	});
-
 	async function createRoom() {
 		// Use placeholder if no name entered
 		const finalName = playerName.trim() || placeholderName;
@@ -138,18 +106,6 @@
 			currentPlayerId = playerId;
 			isHost = true;
 			// Don't set connectedPlayers manually - let the room:joined event handle it
-			
-			// Auto-copy room code to clipboard
-			try {
-				await navigator.clipboard.writeText(roomId);
-				copiedToClipboard = true;
-				// Reset the copied state after 3 seconds
-				setTimeout(() => {
-					copiedToClipboard = false;
-				}, 3000);
-			} catch (err) {
-				console.log('Could not copy to clipboard:', err);
-			}
 			
 			mode = 'create';
 		} catch (error) {
@@ -268,7 +224,8 @@
 	}
 
 	function copyRoomCode() {
-		navigator.clipboard.writeText(currentRoomId).then(() => {
+		const shareUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoomId}`;
+		navigator.clipboard.writeText(shareUrl).then(() => {
 			copiedToClipboard = true;
 			setTimeout(() => {
 				copiedToClipboard = false;
@@ -277,10 +234,11 @@
 	}
 
 	async function shareRoomCode() {
+		const shareUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoomId}`;
 		const shareData = {
 			title: 'Join my High Society game!',
-			text: `Join my High Society game with code: ${currentRoomId}`,
-			url: window.location.href
+			text: `Join my High Society game!`,
+			url: shareUrl
 		};
 
 		try {
@@ -288,14 +246,21 @@
 				await navigator.share(shareData);
 			} else {
 				// Fallback to copy
-				await navigator.clipboard.writeText(currentRoomId);
-				// Could show a toast notification here
+				await navigator.clipboard.writeText(shareUrl);
+				copiedToClipboard = true;
+				setTimeout(() => {
+					copiedToClipboard = false;
+				}, 2000);
 			}
 		} catch (err) {
 			console.log('Error sharing:', err);
 			// Fallback to copy
 			try {
-				await navigator.clipboard.writeText(currentRoomId);
+				await navigator.clipboard.writeText(shareUrl);
+				copiedToClipboard = true;
+				setTimeout(() => {
+					copiedToClipboard = false;
+				}, 2000);
 			} catch (copyErr) {
 				console.error('Failed to copy:', copyErr);
 			}
