@@ -1,4 +1,2 @@
-Fix rejoin functionality so that you enter the game and not the lobby if the game is active, the host is not in the lobby to start the game, they should just auto join when the game is active.
 I need to update the game to be more mobile friendly, there is too much scrolling
 There is no indication of your current bid when waiting or what the other bid composition is when waiting
-Is there a way to prevent a mobile screen from darkening when there is no interaction
