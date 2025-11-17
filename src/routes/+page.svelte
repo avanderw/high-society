@@ -67,6 +67,9 @@
 	// Store bid snapshot before disgrace auction completes (money gets discarded)
 	let disgraceBidSnapshot: Array<{ playerId: string; bidAmount: number }> | null = null;
 	
+	// Screen Wake Lock state
+	let wakeLock: WakeLockSentinel | null = null;
+
 	// Derived state to force reactivity - all depend on updateCounter
 	const currentPhase = $derived(updateCounter >= 0 ? gameState?.getCurrentPhase() : undefined);
 	const currentAuction = $derived(updateCounter >= 0 ? gameState?.getCurrentAuction() : null);
@@ -1253,6 +1256,74 @@
 			startGameAsHost(playerNames);
 		}
 	}
+
+	// Request wake lock when game is active
+	async function requestWakeLock() {
+		try {
+			if ('wakeLock' in navigator) {
+				wakeLock = await navigator.wakeLock.request('screen');
+				console.log('Screen wake lock activated');
+				
+				wakeLock.addEventListener('release', () => {
+					console.log('Screen wake lock released');
+				});
+			}
+		} catch (err) {
+			console.error('Failed to activate screen wake lock:', err);
+		}
+	}
+
+	// Release wake lock
+	async function releaseWakeLock() {
+		if (wakeLock) {
+			try {
+				await wakeLock.release();
+				wakeLock = null;
+			} catch (err) {
+				console.error('Failed to release wake lock:', err);
+			}
+		}
+	}
+
+	// Manage wake lock based on game state
+	$effect(() => {
+		if (gameState && currentPhase && 
+		    currentPhase !== GamePhase.SCORING && 
+		    currentPhase !== GamePhase.FINISHED && 
+		    !inLobby) {
+			// Game is active - request wake lock
+			requestWakeLock();
+		} else {
+			// Game ended or in lobby - release wake lock
+			releaseWakeLock();
+		}
+		
+		// Cleanup on unmount
+		return () => {
+			releaseWakeLock();
+		};
+	});
+
+	// Re-request wake lock when page becomes visible again (handles tab switching)
+	$effect(() => {
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === 'visible' && 
+			    gameState && 
+			    currentPhase !== GamePhase.SCORING && 
+			    currentPhase !== GamePhase.FINISHED && 
+			    !inLobby) {
+				requestWakeLock();
+			}
+		};
+
+		if (typeof document !== 'undefined') {
+			document.addEventListener('visibilitychange', handleVisibilityChange);
+			
+			return () => {
+				document.removeEventListener('visibilitychange', handleVisibilityChange);
+			};
+		}
+	});
 
 	$effect(() => {
 		if (gameState && gameState.getCurrentPhase() === GamePhase.SCORING) {
