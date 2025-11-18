@@ -21,16 +21,12 @@
 
 <article>
 	<header>
-		<hgroup>
-			<h3>Current Auction</h3>
-			<p>
-				{#if phase === GamePhase.DISGRACE_AUCTION}
-					<mark>Disgrace! Bid to avoid this card</mark>
-				{:else}
-					Bid to win this luxury item
-				{/if}
-			</p>
-		</hgroup>
+		<h3>Current Auction</h3>
+		{#if phase === GamePhase.DISGRACE_AUCTION}
+			<small><mark>Disgrace! Bid to avoid</mark></small>
+		{:else}
+			<small>Bid to win this item</small>
+		{/if}
 	</header>
 
 	{#if currentCard}
@@ -46,17 +42,30 @@
 
 	<footer>
 		<small>
-			Game End Triggers: {publicState.gameEndTriggerCount} / 4
-			• Cards Remaining: {publicState.remainingStatusCards}
+			Triggers: {publicState.gameEndTriggerCount}/4 • Cards: {publicState.remainingStatusCards}
 		</small>
 	</footer>
 </article>
 
 <style>
+	article {
+		margin-bottom: 0;
+	}
+
+	header {
+		padding-bottom: 0.5rem;
+	}
+
+	@media (min-width: 768px) {
+		header {
+			padding-bottom: inherit;
+		}
+	}
+
 	.card-display {
 		display: flex;
 		justify-content: center;
-		padding: 1rem 0;
+		padding: 0.35rem 0;
 	}
 
 	@media (min-width: 768px) {
@@ -66,8 +75,8 @@
 	}
 
 	.status-card {
-		width: min(200px, 80vw);
-		padding: 1rem;
+		width: min(160px, 80vw);
+		padding: 0.6rem;
 		border: 3px solid var(--pico-primary);
 		border-radius: var(--pico-border-radius);
 		text-align: center;
@@ -76,6 +85,14 @@
 		animation: cardReveal 0.4s ease-out;
 		position: relative;
 		overflow: hidden;
+	}
+
+	@media (min-width: 768px) {
+		.status-card {
+			width: 200px;
+			padding: 2rem;
+			box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+		}
 	}
 
 	@keyframes cardReveal {
@@ -137,8 +154,8 @@
 	}
 
 	.status-card h2 {
-		margin: 0 0 0.75rem 0;
-		font-size: clamp(1.25rem, 4vw, 1.5rem);
+		margin: 0 0 0.35rem 0;
+		font-size: clamp(0.9rem, 4vw, 1.5rem);
 	}
 
 	@media (min-width: 768px) {
@@ -155,7 +172,7 @@
 	}
 
 	.card-value {
-		font-size: clamp(2rem, 8vw, 3rem);
+		font-size: clamp(1.5rem, 8vw, 3rem);
 		font-weight: bold;
 		color: var(--pico-primary);
 	}

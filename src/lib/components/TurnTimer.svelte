@@ -7,9 +7,10 @@
 		playerName?: string;
 		paused?: boolean;
 		onExpired?: () => void;
+		compact?: boolean; // New prop for compact mode (for header)
 	}
 
-	let { duration, playerName, paused = false, onExpired }: Props = $props();
+	let { duration, playerName, paused = false, onExpired, compact = false }: Props = $props();
 
 	// Internal state - component manages its own countdown
 	let timeRemaining = $state(duration);
@@ -66,7 +67,7 @@
 	const strokeDashoffset = $derived(circumference - (percentage / 100) * circumference);
 </script>
 
-<div class="timer-container">
+<div class="timer-container" class:compact>
 	<svg class="timer-circle" viewBox="0 0 100 100">
 		<!-- Background circle -->
 		<circle
@@ -96,7 +97,7 @@
 		/>
 	</svg>
 	<div class="timer-content">
-		<Clock size={24} color={color} />
+		<Clock size={compact ? 16 : 24} color={color} />
 		<span class="timer-value" style="color: {color}">{timeRemaining}s</span>
 		{#if playerName}
 			<span class="timer-player">{playerName}</span>
@@ -113,6 +114,16 @@
 		width: 100px;
 		height: 100px;
 		animation: pulse 1s infinite;
+	}
+
+	.timer-container.compact {
+		position: relative;
+		top: auto;
+		right: auto;
+		z-index: auto;
+		width: 60px;
+		height: 60px;
+		animation: none;
 	}
 
 	@keyframes pulse {
@@ -147,6 +158,10 @@
 		line-height: 1;
 	}
 
+	.compact .timer-value {
+		font-size: 0.875rem;
+	}
+
 	.timer-player {
 		font-size: 0.625rem;
 		color: var(--pico-muted-color);
@@ -155,6 +170,10 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.compact .timer-player {
+		display: none; /* Hide player name in compact mode */
 	}
 
 	@media (max-width: 480px) {

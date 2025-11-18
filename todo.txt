@@ -1,1 +1,4 @@
 Randomise turn order on game start
+Create compact grid layout for mobile
+Optimize player hand display
+Implement tabs for card, players, my hand.

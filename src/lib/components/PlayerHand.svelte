@@ -104,9 +104,9 @@
 	<header>
 		<h3>Your Money ({player.name})</h3>
 		<small>
-			Available: {player.getTotalRemainingMoney().toLocaleString()} Francs
+			{player.getTotalRemainingMoney().toLocaleString()}F
 			{#if playedMoney.length > 0}
-				• Currently Bid: {player.getCurrentBidAmount().toLocaleString()} Francs
+				• Bid: {player.getCurrentBidAmount().toLocaleString()}F
 			{/if}
 		</small>
 	</header>
@@ -210,17 +210,23 @@
 	.money-cards {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin: 1rem 0;
-		overflow-x: auto;
-		-webkit-overflow-scrolling: touch;
+		gap: 0.35rem;
+		margin: 0.5rem 0;
+		padding-bottom: 0.25rem;
+	}
+
+	@media (min-width: 768px) {
+		.money-cards {
+			gap: 0.5rem;
+			margin: 1rem 0;
+		}
 	}
 
 	.money-card {
-		width: min(80px, 15vw);
-		min-width: 60px;
-		height: min(100px, 20vw);
-		min-height: 75px;
+		width: 70px;
+		min-width: 70px;
+		height: 90px;
+		min-height: 90px;
 		padding: 0.25rem;
 		border: 2px solid var(--pico-muted-border-color);
 		border-radius: var(--pico-border-radius);
@@ -314,16 +320,29 @@
 	.bid-info {
 		background-color: var(--pico-card-background-color);
 		border-radius: var(--pico-border-radius);
-		padding: 0.75rem;
-		margin-bottom: 1rem;
+		padding: 0.5rem;
+		margin-bottom: 0.5rem;
+	}
+
+	@media (min-width: 768px) {
+		.bid-info {
+			padding: 0.75rem;
+			margin-bottom: 1rem;
+		}
 	}
 
 	.bid-row {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 0.25rem 0;
+		padding: 0.15rem 0;
 		font-size: clamp(0.875rem, 2vw, 1rem);
+	}
+
+	@media (min-width: 768px) {
+		.bid-row {
+			padding: 0.25rem 0;
+		}
 	}
 
 	.bid-row.total {
@@ -345,18 +364,19 @@
 	.grid {
 		display: grid;
 		grid-template-columns: 1fr;
-		gap: 0.5rem;
+		gap: 0.35rem;
 	}
 
 	@media (min-width: 480px) {
 		.grid {
 			grid-template-columns: 1fr 1fr;
+			gap: 0.5rem;
 		}
 	}
 
 	button {
 		font-size: clamp(0.875rem, 2vw, 1rem);
-		padding: 0.5rem 0.75rem;
+		padding: 0.4rem 0.6rem;
 	}
 
 	@media (min-width: 768px) {

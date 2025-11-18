@@ -348,9 +348,9 @@
 			</div>
 		</div>
 	{:else if mode === 'create' && currentRoomId}
-		<div class="room-lobby">
+		<!-- Host lobby - cleaner, more focused on actions -->
+		<div class="room-lobby host-lobby">
 			<div class="room-code-display">
-				<h3>Room Code</h3>
 				{#if copiedToClipboard}
 					<div class="copied-notification" role="alert">
 						✓ Copied to clipboard!
@@ -375,11 +375,10 @@
 						📤 Share
 					</button>
 				</div>
-				<p class="help-text">Share this code with other players</p>
 			</div>
 
 			<div class="player-list">
-				<h4>Connected Players ({connectedPlayers.length}/5)</h4>
+				<h4>Players ({connectedPlayers.length}/5)</h4>
 				<ul>
 					{#each connectedPlayers as player}
 						<li>
@@ -393,9 +392,8 @@
 			</div>
 
 			<div class="game-settings">
-				<h4>Game Settings</h4>
 				<label for="turn-timer">
-					Turn Timer: {turnTimerSeconds}s per turn
+					Turn Timer: {turnTimerSeconds}s
 					<input
 						id="turn-timer"
 						type="range"
@@ -404,7 +402,6 @@
 						step="5"
 						bind:value={turnTimerSeconds}
 					/>
-					<small>Players will automatically pass if they don't act within {turnTimerSeconds} seconds</small>
 				</label>
 			</div>
 
@@ -413,20 +410,16 @@
 					onclick={startGame}
 					disabled={connectedPlayers.length < 2 || connectedPlayers.length > 5}
 				>
-					Start Game ({connectedPlayers.length} players)
+					Start Game
 				</button>
 				
 				<button 
 					onclick={leaveRoom}
 					class="secondary"
 				>
-					Leave Room
+					Cancel
 				</button>
 			</div>
-
-			{#if connectedPlayers.length < 2}
-				<p class="help-text">Waiting for at least 1 more player...</p>
-			{/if}
 		</div>
 	{:else if mode === 'join' && !currentRoomId}
 		<div>
@@ -546,6 +539,36 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
+	}
+
+	/* Host lobby - more compact and action-focused */
+	.host-lobby {
+		gap: 1rem;
+	}
+
+	.host-lobby .room-code-display {
+		text-align: center;
+	}
+
+	.host-lobby .code-box {
+		margin: 0.5rem 0;
+	}
+
+	.host-lobby .code-box .room-code {
+		font-size: clamp(1.5rem, 5vw, 2rem);
+		padding: 0.75rem 1.25rem;
+	}
+
+	.host-lobby .game-settings {
+		padding: 0.75rem 1rem;
+	}
+
+	.host-lobby .game-settings label {
+		font-size: 0.95rem;
+	}
+
+	.host-lobby .player-list {
+		padding: 0.75rem 1rem;
 	}
 
 	.room-code-display {
