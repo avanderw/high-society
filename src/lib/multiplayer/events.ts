@@ -18,6 +18,7 @@ export enum GameEventType {
 	BID_PLACED = 'action:bid',
 	PASS_AUCTION = 'action:pass',
 	LUXURY_DISCARDED = 'action:luxury_discard',
+	TURN_TIMEOUT = 'action:turn_timeout',
 	
 	// Game progression
 	AUCTION_COMPLETE = 'game:auction_complete',
@@ -138,6 +139,15 @@ export interface LuxuryDiscardedEvent extends GameEvent {
 	};
 }
 
+export interface TurnTimeoutEvent extends GameEvent {
+	type: GameEventType.TURN_TIMEOUT;
+	data: {
+		playerId: string;
+		playerName: string;
+		currentPlayerIndex: number;
+	};
+}
+
 // Game progression events
 export interface AuctionCompleteEvent extends GameEvent {
 	type: GameEventType.AUCTION_COMPLETE;
@@ -197,11 +207,12 @@ export function isRoomEvent(event: GameEvent): event is RoomCreatedEvent | Playe
 	].includes(event.type);
 }
 
-export function isActionEvent(event: GameEvent): event is BidPlacedEvent | PassAuctionEvent | LuxuryDiscardedEvent {
+export function isActionEvent(event: GameEvent): event is BidPlacedEvent | PassAuctionEvent | LuxuryDiscardedEvent | TurnTimeoutEvent {
 	return [
 		GameEventType.BID_PLACED,
 		GameEventType.PASS_AUCTION,
-		GameEventType.LUXURY_DISCARDED
+		GameEventType.LUXURY_DISCARDED,
+		GameEventType.TURN_TIMEOUT
 	].includes(event.type);
 }
 

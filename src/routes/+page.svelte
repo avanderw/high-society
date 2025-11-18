@@ -32,6 +32,7 @@
 	let multiplayerService = getMultiplayerService();
 	let listenersRegistered = false; // Flag to prevent duplicate listener registration
 	let processedEvents = $state<Set<string>>(new Set()); // Track processed events to prevent duplicates
+	let turnTimerSeconds = $state(30); // Turn timer configuration (default 30s)
 	
 	// Restart state management
 	let restartRequested = $state(false); // True when host requests restart
@@ -63,6 +64,11 @@
 		losersInfo?: Array<{ player: Player; bidAmount: number }>;
 	} | null>(null);
 	let updateCounter = $state(0); // Force update counter
+	
+	// Turn timer state
+	let turnTimeRemaining = $state(0); // Seconds remaining in current turn
+	let turnTimerInterval: number | null = null; // Timer interval ID
+	let lastTurnPlayerIndex = $state(-1); // Track when turn changes to reset timer
 	
 	// Store bid snapshot before disgrace auction completes (money gets discarded)
 	let disgraceBidSnapshot: Array<{ playerId: string; bidAmount: number }> | null = null;
@@ -101,6 +107,77 @@
 		console.log(`Turn check [counter=${updateCounter}]: myPlayerId=${myPlayerId}, myGameIndex=${myGameIndex}, currentPlayerIndex=${currentPlayerIndex}, currentPlayer=${gameState?.getCurrentPlayer()?.name}, isMyTurn=${result}`);
 		return result;
 	});
+
+	// Turn timer effect - manages countdown and auto-pass on timeout
+	$effect(() => {
+		// Clear any existing timer
+		if (turnTimerInterval !== null) {
+			clearInterval(turnTimerInterval);
+			turnTimerInterval = null;
+		}
+
+		// Only run timer during auction phases when game is active
+		const phase = currentPhase;
+		if (!gameState || !phase || phase === GamePhase.SETUP || phase === GamePhase.FINISHED || phase === GamePhase.SCORING) {
+			turnTimeRemaining = 0;
+			return;
+		}
+
+		// Check if turn has changed
+		const currentIndex = currentPlayerIndex;
+		if (currentIndex !== lastTurnPlayerIndex) {
+			lastTurnPlayerIndex = currentIndex;
+			turnTimeRemaining = turnTimerSeconds;
+			console.log(`Turn changed to player ${currentIndex}, resetting timer to ${turnTimerSeconds}s`);
+		}
+
+		// Start countdown
+		if (turnTimeRemaining > 0) {
+			turnTimerInterval = window.setInterval(() => {
+				turnTimeRemaining--;
+				
+				if (turnTimeRemaining <= 0) {
+					console.log('Turn timer expired!');
+					// Auto-pass on timeout
+					handleTurnTimeout();
+				}
+			}, 1000);
+
+			// Cleanup on unmount or when effect reruns
+			return () => {
+				if (turnTimerInterval !== null) {
+					clearInterval(turnTimerInterval);
+					turnTimerInterval = null;
+				}
+			};
+		}
+	});
+
+	// Handle turn timeout - auto-pass the current player
+	function handleTurnTimeout() {
+		if (!gameState || !currentPlayerObj) return;
+
+		const auction = gameState.getCurrentAuction();
+		if (!auction) return;
+
+		// Check if the current player is still active before auto-passing
+		if (!auction.getActivePlayers().has(currentPlayerObj.id)) {
+			console.log(`Player ${currentPlayerObj.name} already passed, skipping timeout`);
+			return;
+		}
+
+		console.log(`Player ${currentPlayerObj.name} timed out, auto-passing`);
+		
+		// Broadcast timeout event
+		multiplayerService.broadcastEvent(GameEventType.TURN_TIMEOUT, {
+			playerId: currentPlayerObj.id,
+			playerName: currentPlayerObj.name,
+			currentPlayerIndex: currentPlayerIndex
+		});
+
+		// Apply the pass locally
+		pass();
+	}
 
 	// Helper to prevent duplicate event processing
 	function shouldProcessEvent(eventType: string, eventTimestamp: number): boolean {
@@ -147,7 +224,7 @@
 					const stateData = JSON.parse(stored);
 					// Only restore if less than 1 hour old
 					if (Date.now() - stateData.timestamp < 60 * 60 * 1000) {
-						const game = new GameState('game-' + Date.now());
+						const game = new GameState('game-' + Date.now(), undefined, turnTimerSeconds);
 						const playerNames = lobbyPlayers.map(p => p.playerName);
 						game.initializeGame(playerNames);
 						gameState = deserializeGameState(stateData.serializedState, game);
@@ -168,12 +245,13 @@
 
 	function startGame(playerNames: string[], lobbyIndexToGameIndex?: number[]) {
 		try {
-			const game = new GameState('game-' + Date.now());
+			const game = new GameState('game-' + Date.now(), undefined, turnTimerSeconds);
 			game.initializeGame(playerNames);
 			game.startNewRound();
 			console.log('=== GAME STARTED ===');
 			console.log('Starting player index:', game.getCurrentPlayerIndex());
 			console.log('Starting player:', game.getCurrentPlayer().name);
+			console.log('Turn Timer:', turnTimerSeconds, 'seconds');
 			console.log('All players:', game.getPlayers().map(p => `${p.name} (${p.id})`));
 			const auction = game.getCurrentAuction();
 			if (auction) {
@@ -270,7 +348,7 @@
 		}
 		
 		try {
-			const game = new GameState('game-' + Date.now());
+			const game = new GameState('game-' + Date.now(), undefined, turnTimerSeconds);
 			
 			// Initialize with player names from event
 			const playerNames = event.data.players.map((p: any) => p.name);
@@ -315,7 +393,8 @@
 		playerIdParam: string, 
 		playerNameParam: string,
 		isHostParam: boolean,
-		players: Array<{ playerId: string; playerName: string }>
+		players: Array<{ playerId: string; playerName: string }>,
+		turnTimerSecondsParam: number
 	) {
 		roomId = roomIdParam;
 		myPlayerId = playerIdParam;
@@ -323,6 +402,7 @@
 		isHost = isHostParam;
 		lobbyPlayers = players;
 		inLobby = true;
+		turnTimerSeconds = turnTimerSecondsParam;
 		
 		// Store the host player ID (first player is always the host/creator)
 		if (players.length > 0) {
@@ -340,6 +420,7 @@
 		console.log('My Player ID:', myPlayerId);
 		console.log('Is Host:', isHost);
 		console.log('Connected Players:', players);
+		console.log('Turn Timer:', turnTimerSeconds, 'seconds');
 		
 		// ONLY THE HOST starts the game immediately
 		// Clients will start when they receive GAME_STARTED event
@@ -563,6 +644,12 @@
 					return;
 				}
 				
+				// Check if player is still active before processing bid
+				if (!auction.getActivePlayers().has(player.id)) {
+					console.log('Player already passed or auction complete, skipping bid event');
+					return;
+				}
+				
 				// Find the money cards
 				const moneyCards = player.getMoneyHand().filter(c => 
 					event.data.moneyCardIds.includes(c.id)
@@ -625,6 +712,12 @@
 					return;
 				}
 				
+				// Check if player is still active before processing pass
+				if (!auction.getActivePlayers().has(player.id)) {
+					console.log('Player already passed or auction complete, skipping pass event');
+					return;
+				}
+				
 				// For disgrace auctions, capture all bids BEFORE processPass (which discards money)
 				const isDisgrace = currentPhase === GamePhase.DISGRACE_AUCTION;
 				if (isDisgrace) {
@@ -636,6 +729,65 @@
 				
 				const result = auction.processPass(player);
 				console.log('Pass processed, result:', result);
+
+		// ============================================================
+		// TURN_TIMEOUT EVENT - Player timed out, process as pass
+		// ============================================================
+		multiplayerService.on(GameEventType.TURN_TIMEOUT, (event: GameEvent) => {
+			console.log('=== TURN_TIMEOUT EVENT RECEIVED ===');
+			console.log('Player timed out:', event.data?.playerName);
+			console.log('My Player ID:', myPlayerId);
+			
+			if (!gameState) {
+				console.warn('Received TURN_TIMEOUT but no game state');
+				return;
+			}
+			
+			// Skip if it's our own timeout (we already handled it locally)
+			if (event.data.playerId === myPlayerId) {
+				console.log('Skipping own timeout event');
+				return;
+			}
+			
+			// Process as a pass for the timed-out player
+			console.log('Processing timeout as pass for other player');
+			try {
+				const player = gameState.getPlayers().find(p => p.id === event.data.playerId);
+				const auction = gameState.getCurrentAuction();
+				
+				if (!player || !auction) {
+					console.error('Invalid player or auction state');
+					return;
+				}
+				
+				// Check if player is still active in the auction before processing pass
+				if (!auction.getActivePlayers().has(player.id)) {
+					console.log('Player already passed or auction complete, skipping timeout event');
+					return;
+				}
+				
+				// For disgrace auctions, capture all bids BEFORE processPass
+				const isDisgrace = currentPhase === GamePhase.DISGRACE_AUCTION;
+				if (isDisgrace) {
+					disgraceBidSnapshot = gameState.getPlayers().map(p => ({
+						playerId: p.id,
+						bidAmount: p.getCurrentBidAmount()
+					}));
+				}
+				
+				const result = auction.processPass(player);
+				console.log('Timeout processed as pass, result:', result);
+				
+				if (result.type === 'auction_complete') {
+					handleAuctionComplete(result);
+				}
+				
+				updateCounter++;
+			} catch (error) {
+				console.error('Failed to process timeout:', error);
+			}
+		});
+
 
 				if (result === AuctionResult.COMPLETE) {
 					if (isHost) {
@@ -1689,6 +1841,8 @@
 					updateKey={updateCounter}
 					connectedPlayerIds={connectedPlayerIds}
 					playerIdToGameIndex={playerIdToGameIndex}
+					turnTimeRemaining={turnTimeRemaining}
+					turnTimerSeconds={turnTimerSeconds}
 				/>
 			{/if}
 

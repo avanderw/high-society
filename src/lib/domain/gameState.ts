@@ -19,6 +19,7 @@ export interface GamePublicState {
   gameEndTriggerCount: number;
   remainingStatusCards: number;
   currentPlayerIndex: number;
+  turnTimerSeconds: number;
 }
 
 export class GameContext {
@@ -62,13 +63,18 @@ export class GameState {
   private phase: GamePhase = GamePhase.SETUP;
   private currentPlayerIndex = 0;
   private rng?: SeededRandom;
+  private turnTimerSeconds = 30; // Default 30 seconds per turn
 
   constructor(
     public readonly gameId: string,
-    seed?: number
+    seed?: number,
+    turnTimerSeconds?: number
   ) {
     if (seed !== undefined) {
       this.rng = new SeededRandom(seed);
+    }
+    if (turnTimerSeconds !== undefined) {
+      this.turnTimerSeconds = turnTimerSeconds;
     }
   }
 
@@ -236,8 +242,13 @@ export class GameState {
       currentCard: this.currentAuction?.getCard() || null,
       gameEndTriggerCount: this.gameEndTriggerCount,
       remainingStatusCards: this.statusDeck.length,
-      currentPlayerIndex: this.currentPlayerIndex
+      currentPlayerIndex: this.currentPlayerIndex,
+      turnTimerSeconds: this.turnTimerSeconds
     };
+  }
+
+  getTurnTimerSeconds(): number {
+    return this.turnTimerSeconds;
   }
 
   handleLuxuryDiscard(playerId: string, luxuryCardId: string): void {

@@ -2,13 +2,17 @@
 	import type { Player } from '$lib/domain/player';
 	import { StatusCalculator } from '$lib/domain/scoring';
 	import { LuxuryCard, PrestigeCard } from '$lib/domain/cards';
+	import { Clock } from 'lucide-svelte';
 
 	interface Props {
 		players: Player[];
 		updateKey?: number;
+		currentPlayerIndex?: number;
+		turnTimeRemaining?: number;
+		turnTimerSeconds?: number;
 	}
 
-	let { players, updateKey = 0 }: Props = $props();
+	let { players, updateKey = 0, currentPlayerIndex = -1, turnTimeRemaining = 0, turnTimerSeconds = 30 }: Props = $props();
 
 	const calculator = new StatusCalculator();
 
@@ -16,8 +20,9 @@
 	const playerStatuses = $derived.by(() => {
 		// This forces the derived to re-run when updateKey changes
 		const _ = updateKey;
-		return players.map(player => ({
+		return players.map((player, index) => ({
 			player,
+			playerIndex: index,
 			currentStatus: calculator.calculate(player.getStatusCards()),
 			// Sort status cards by value (ascending) - luxury cards first, then prestige, then disgrace
 			statusCards: player.getStatusCards().sort((a, b) => {
@@ -36,6 +41,14 @@
 			})
 		}));
 	});
+
+	// Calculate timer percentage and color
+	const timerPercentage = $derived((turnTimeRemaining / turnTimerSeconds) * 100);
+	const timerColor = $derived(
+		timerPercentage > 50 ? 'var(--pico-ins-color)' :
+		timerPercentage > 25 ? 'orange' :
+		'var(--pico-del-color)'
+	);
 </script>
 
 <article>
@@ -44,13 +57,19 @@
 	</header>
 
 	<section>
-		{#each playerStatuses as { player, currentStatus, statusCards }}
+		{#each playerStatuses as { player, playerIndex, currentStatus, statusCards }}
 			<details>
 				<summary>
 					<span style="color: {player.color};">●</span>
 					<strong>{player.name}</strong> - Status: {currentStatus}
 					{#if player.getPendingLuxuryDiscard()}
 						<mark style="background-color: var(--pico-del-color);">Must Discard</mark>
+					{/if}
+					{#if playerIndex === currentPlayerIndex && turnTimeRemaining > 0}
+						<span class="turn-timer" style="color: {timerColor};">
+							<Clock size={14} />
+							{turnTimeRemaining}s
+						</span>
 					{/if}
 				</summary>
 
@@ -84,10 +103,27 @@
 		padding: 0.5rem;
 		margin: 0.25rem 0;
 		font-size: clamp(0.875rem, 2vw, 1rem);
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
 	}
 
 	summary:hover {
 		background: var(--pico-card-sectioning-background-color);
+	}
+
+	.turn-timer {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		font-weight: bold;
+		font-size: clamp(0.75rem, 2vw, 0.875rem);
+		margin-left: auto;
+		padding: 0.125rem 0.375rem;
+		border-radius: var(--pico-border-radius);
+		background: var(--pico-card-background-color);
+		border: 1px solid currentColor;
 	}
 
 	.status-cards {

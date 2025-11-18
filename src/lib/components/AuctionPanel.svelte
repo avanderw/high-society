@@ -3,7 +3,7 @@
 	import type { Player } from '$lib/domain/player';
 	import { StatusCalculator } from '$lib/domain/scoring';
 	import { LuxuryCard, PrestigeCard } from '$lib/domain/cards';
-	import { Wifi, WifiOff } from 'lucide-svelte';
+	import { Wifi, WifiOff, Clock } from 'lucide-svelte';
 
 	interface Props {
 		auction: Auction | null;
@@ -13,14 +13,24 @@
 		updateKey?: number;
 		connectedPlayerIds?: Set<string>;
 		playerIdToGameIndex?: Map<string, number>;
+		turnTimeRemaining?: number;
+		turnTimerSeconds?: number;
 	}
 
-	let { auction, currentPlayer, currentPlayerIndex, allPlayers, updateKey = 0, connectedPlayerIds = new Set(), playerIdToGameIndex = new Map() }: Props = $props();
+	let { auction, currentPlayer, currentPlayerIndex, allPlayers, updateKey = 0, connectedPlayerIds = new Set(), playerIdToGameIndex = new Map(), turnTimeRemaining = 0, turnTimerSeconds = 30 }: Props = $props();
 
 	const calculator = new StatusCalculator();
 
 	const isActive = $derived((playerId: string) => 
 		auction?.getActivePlayers().has(playerId) ?? false
+	);
+
+	// Calculate timer percentage and color
+	const timerPercentage = $derived((turnTimeRemaining / turnTimerSeconds) * 100);
+	const timerColor = $derived(
+		timerPercentage > 50 ? 'var(--pico-ins-color)' :
+		timerPercentage > 25 ? 'orange' :
+		'var(--pico-del-color)'
 	);
 
 	// Check if a player is connected based on their multiplayer ID
@@ -74,6 +84,12 @@
 						{:else}
 							<span class="connection-status connected" title="Player connected">
 								<Wifi size={14} />
+							</span>
+						{/if}
+						{#if gameIndex === currentPlayerIndex && turnTimeRemaining > 0}
+							<span class="turn-timer" style="color: {timerColor};">
+								<Clock size={14} />
+								{turnTimeRemaining}s
 							</span>
 						{/if}
 						<span class="status-value">Status: {currentStatus}</span>
@@ -168,6 +184,28 @@
 
 	.player-header strong {
 		font-size: clamp(0.875rem, 2vw, 1rem);
+	}
+
+	.turn-timer {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		font-weight: bold;
+		font-size: clamp(0.75rem, 2vw, 0.875rem);
+		padding: 0.125rem 0.375rem;
+		border-radius: var(--pico-border-radius);
+		background: var(--pico-card-background-color);
+		border: 1px solid currentColor;
+		animation: pulse-timer 1s infinite;
+	}
+
+	@keyframes pulse-timer {
+		0%, 100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.7;
+		}
 	}
 
 	.status-value {

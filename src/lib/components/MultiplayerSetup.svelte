@@ -4,7 +4,7 @@
 	import { normalizeRoomCode, isValidRoomCode } from '$lib/multiplayer/wordlist';
 	
 	type Props = {
-		onRoomReady: (roomId: string, playerId: string, playerName: string, isHost: boolean, players: Array<{ playerId: string; playerName: string }>) => void;
+		onRoomReady: (roomId: string, playerId: string, playerName: string, isHost: boolean, players: Array<{ playerId: string; playerName: string }>, turnTimerSeconds: number) => void;
 		initialRoomCode?: string;
 	};
 	
@@ -21,6 +21,7 @@
 	let isHost = $state(false);
 	let placeholderName = $state('');
 	let copiedToClipboard = $state(false);
+	let turnTimerSeconds = $state(30); // Default 30 seconds per turn
 
 	const multiplayerService = getMultiplayerService();
 
@@ -187,7 +188,7 @@
 		if (!isHost) {
 			// For clients only, call onRoomReady to transition
 			const finalName = playerName.trim() || placeholderName;
-			onRoomReady(currentRoomId, currentPlayerId, finalName, isHost, connectedPlayers);
+			onRoomReady(currentRoomId, currentPlayerId, finalName, isHost, connectedPlayers, turnTimerSeconds);
 		}
 		// For host, onRoomReady was already called when they clicked "Start Game"
 	}
@@ -204,7 +205,7 @@
 		}
 
 		const finalName = playerName.trim() || placeholderName;
-		onRoomReady(currentRoomId, currentPlayerId, finalName, isHost, connectedPlayers);
+		onRoomReady(currentRoomId, currentPlayerId, finalName, isHost, connectedPlayers, turnTimerSeconds);
 	}
 
 	function leaveRoom() {
@@ -383,6 +384,22 @@
 						</li>
 					{/each}
 				</ul>
+			</div>
+
+			<div class="game-settings">
+				<h4>Game Settings</h4>
+				<label for="turn-timer">
+					Turn Timer: {turnTimerSeconds}s per turn
+					<input
+						id="turn-timer"
+						type="range"
+						min="15"
+						max="120"
+						step="5"
+						bind:value={turnTimerSeconds}
+					/>
+					<small>Players will automatically pass if they don't act within {turnTimerSeconds} seconds</small>
+				</label>
 			</div>
 
 			<div class="button-group">
@@ -635,6 +652,26 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+	}
+
+	.game-settings {
+		background-color: var(--pico-card-background-color);
+		padding: 1rem;
+		border-radius: var(--pico-border-radius);
+	}
+
+	.game-settings h4 {
+		margin-bottom: 0.75rem;
+	}
+
+	.game-settings label {
+		margin-bottom: 0;
+	}
+
+	.game-settings small {
+		display: block;
+		margin-top: 0.5rem;
+		color: var(--pico-muted-color);
 	}
 
 	.badge {

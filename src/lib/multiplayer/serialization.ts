@@ -59,6 +59,7 @@ export interface SerializedGameState {
 	remainingStatusCards: number;
 	phase: GamePhase;
 	currentPlayerIndex: number;
+	turnTimerSeconds: number;
 }
 
 // Serialization functions
@@ -137,7 +138,8 @@ export function serializeGameState(gameState: GameState): SerializedGameState {
 		gameEndTriggerCount: publicState.gameEndTriggerCount,
 		remainingStatusCards: publicState.remainingStatusCards,
 		phase: gameState.getCurrentPhase(),
-		currentPlayerIndex: gameState.getCurrentPlayerIndex()
+		currentPlayerIndex: gameState.getCurrentPlayerIndex(),
+		turnTimerSeconds: gameState.getTurnTimerSeconds()
 	};
 }
 
@@ -207,7 +209,7 @@ export function deserializeAuction(data: SerializedAuction, players: Player[]): 
 export function deserializeGameState(data: SerializedGameState, originalGameState?: GameState): GameState {
 	// Always create a new GameState to ensure Svelte reactivity triggers
 	// Reusing the original game state prevents reactivity updates
-	const gameState = new GameState(data.gameId);
+	const gameState = new GameState(data.gameId, undefined, data.turnTimerSeconds);
 	
 	// Restore players
 	const players = data.players.map(deserializePlayer);
