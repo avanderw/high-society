@@ -11,12 +11,25 @@
  * Configuration:
  *   PORT - Server port (default: 3000)
  *   CORS_ORIGIN - Allowed origins (default: *)
+ *   LOG_LEVEL - Logging verbosity: debug|info|warn|error (default: info)
  */
 
 import { Server } from 'socket.io';
 
 const PORT = process.env.PORT || 3000;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
+
+// Simple logger for relay server
+const LogLevels = { debug: 0, info: 1, warn: 2, error: 3 };
+const currentLevel = LogLevels[LOG_LEVEL] || LogLevels.info;
+
+const log = {
+  debug: (msg, data) => currentLevel <= 0 && console.log(`[DEBUG] ${msg}`, data || ''),
+  info: (msg, data) => currentLevel <= 1 && console.log(`[INFO] ${msg}`, data || ''),
+  warn: (msg, data) => currentLevel <= 2 && console.warn(`[WARN] ${msg}`, data || ''),
+  error: (msg, error) => currentLevel <= 3 && console.error(`[ERROR] ${msg}`, error || '')
+};
 
 // Store rooms and their players
 // Structure: Map<roomId, {players: Set<{socketId, playerId, playerName}>, inGame: boolean, disconnectedPlayerIds: Set<playerId>}>
@@ -29,11 +42,12 @@ const io = new Server(PORT, {
   }
 });
 
-console.log(`🎮 High Society Relay Server started on port ${PORT}`);
-console.log(`📡 CORS enabled for: ${CORS_ORIGIN}`);
+log.info(`🎮 High Society Relay Server started on port ${PORT}`);
+log.info(`📡 CORS enabled for: ${CORS_ORIGIN}`);
+log.info(`📊 Log level: ${LOG_LEVEL}`);
 
 io.on('connection', (socket) => {
-  console.log(`✅ Client connected: ${socket.id}`);
+  log.debug(`Client connected: ${socket.id}`);
 
   /**
    * Create a new game room
@@ -46,6 +60,7 @@ io.on('connection', (socket) => {
   socket.on('create_room', ({ roomId, playerId, playerName }, callback) => {
     try {
       if (rooms.has(roomId)) {
+        log.warn(`Room creation failed: ${roomId} already exists`);
         callback({ 
           success: false, 
           error: `Room ${roomId} already exists` 
@@ -66,7 +81,7 @@ io.on('connection', (socket) => {
       };
       rooms.set(roomId, roomData);
 
-      console.log(`🏠 Room created: ${roomId} by ${playerName} (${playerId})`);
+      log.info(`🏠 Room created: ${roomId}`, { player: playerName, playerId });
       
       // Emit room:joined event to the creator as well
       io.to(roomId).emit('room:joined', {
@@ -88,7 +103,7 @@ io.on('connection', (socket) => {
         playerId 
       });
     } catch (error) {
-      console.error('❌ Error creating room:', error);
+      log.error('Room creation error', error);
       callback({ 
         success: false, 
         error: error.message 

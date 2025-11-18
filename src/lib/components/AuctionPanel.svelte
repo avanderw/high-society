@@ -48,6 +48,10 @@
 	// Player status calculations
 	const playerStatuses = $derived.by(() => {
 		const _ = updateKey;
+		// Safety check for undefined allPlayers during initialization
+		if (!allPlayers || !Array.isArray(allPlayers)) {
+			return [];
+		}
 		return allPlayers.map((player, index) => ({
 			player,
 			gameIndex: index,

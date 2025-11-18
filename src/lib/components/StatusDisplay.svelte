@@ -20,6 +20,10 @@
 	const playerStatuses = $derived.by(() => {
 		// This forces the derived to re-run when updateKey changes
 		const _ = updateKey;
+		// Safety check for undefined players during initialization
+		if (!players || !Array.isArray(players)) {
+			return [];
+		}
 		return players.map((player, index) => ({
 			player,
 			playerIndex: index,

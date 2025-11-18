@@ -64,23 +64,21 @@ export class RegularAuction extends Auction {
     return AuctionResult.CONTINUE;
   }
 
-  processPass(player: Player): AuctionResult {
-    this.validatePlayerActive(player);
+processPass(player: Player): AuctionResult {
+  this.validatePlayerActive(player);
 
-    player.returnPlayedMoney();
-    this.activePlayers.delete(player.id);
+  player.returnPlayedMoney();
+  this.activePlayers.delete(player.id);
 
-    // If only one player remains, they win (even if no one bid)
-    if (this.activePlayers.size === 1) {
-      const lastPlayerId = Array.from(this.activePlayers)[0];
-      this.currentWinner = this.players.find(p => p.id === lastPlayerId) || null;
-      return AuctionResult.COMPLETE;
-    }
-
-    return this.activePlayers.size === 0 ? AuctionResult.COMPLETE : AuctionResult.CONTINUE;
+  // If only one player remains, they win (even with 0 bid)
+  if (this.activePlayers.size === 1) {
+    const lastPlayerId = Array.from(this.activePlayers)[0];
+    this.currentWinner = this.players.find(p => p.id === lastPlayerId) || null;
+    return AuctionResult.COMPLETE;
   }
 
-  isComplete(): boolean {
+  return this.activePlayers.size === 0 ? AuctionResult.COMPLETE : AuctionResult.CONTINUE;
+}  isComplete(): boolean {
     return this.activePlayers.size <= 1;
   }
 

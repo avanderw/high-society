@@ -1,176 +1,123 @@
-# Multiplayer Architecture for High Society
+# Multiplayer Architecture
 
-## Overview
+## Design Philosophy
 
-The application has been converted from a local hotseat game to a multiplayer websocket-based game where:
-- A relay server (Socket.IO) receives and broadcasts events to all players in a room
-- Each client manages their own game state independently  
-- State synchronization happens through event broadcasting
-- No server-side game logic - clients are authoritative
+**Client-Authoritative Event Broadcasting**
+- Relay server broadcasts events, does NOT validate game logic
+- Each client maintains independent `GameState` instance
+- Deterministic game logic ensures state consistency
+- Suitable for trusted players only (no anti-cheat)
 
-## Architecture Components
+## System Components
 
-### 1. Event System (`src/lib/multiplayer/events.ts`)
+### 1. Relay Server (`relay-server.js`)
+**Purpose**: Stateless event broadcaster using Socket.IO
 
-Defines all game events for multiplayer communication:
+**Responsibilities:**
+- Room management (create/join/leave)
+- Event broadcasting to room members
+- Connection lifecycle handling
 
-**Room Management Events:**
-- `ROOM_CREATED` - Room created by host
-- `PLAYER_JOINED` - Player joined the room
-- `PLAYER_LEFT` - Player left the room
-- `GAME_STARTED` - Game initialization started
+**Does NOT:**
+- Validate game moves
+- Maintain game state
+- Enforce game rules
 
-**Player Action Events:**
-- `BID_PLACED` - Player placed a bid
-- `PASS_AUCTION` - Player passed on auction
-- `LUXURY_DISCARDED` - Player discarded a luxury card
+### 2. Event System (`src/lib/multiplayer/events.ts`)
+**Purpose**: Type-safe event definitions for game actions
 
-**Game State Events:**
-- `STATE_SYNC` - Full state synchronization
-- `ROUND_STARTED` - New auction round began
-- `AUCTION_COMPLETE` - Auction finished
-- `GAME_ENDED` - Game completed with final scores
+**Event Categories:**
+- **Room**: `ROOM_CREATED`, `PLAYER_JOINED`, `PLAYER_LEFT`, `GAME_STARTED`
+- **Actions**: `BID_PLACED`, `PASS_AUCTION`, `LUXURY_DISCARDED`
+- **Game**: `STATE_SYNC`, `ROUND_STARTED`, `AUCTION_COMPLETE`, `GAME_ENDED`
 
-### 2. WebSocket Service (`src/lib/multiplayer/service.ts`)
-
-Manages connection and communication with the Socket.IO server:
+### 3. Multiplayer Service (`src/lib/multiplayer/service.ts`)
+**Purpose**: WebSocket client wrapper (singleton pattern)
 
 **Key Methods:**
-- `connect()` - Connect to the relay server
-- `createRoom(playerName)` - Create a new game room
-- `joinRoom(roomId, playerName)` - Join an existing room
-- `broadcastEvent(type, data)` - Broadcast event to all players
-- `on(eventType, callback)` - Register event handler
-- `off(eventType, callback)` - Unregister event handler
+```typescript
+connect() // Connect to relay server
+createRoom(playerName) // Create room, become host
+joinRoom(roomId, playerName) // Join existing room
+broadcastEvent(type, data) // Send event to room
+on(eventType, callback) // Register listener
+```
 
-**Configuration:**
-The client automatically detects the relay server URL based on hostname:
+**Auto-configuration:**
 - `localhost` → `http://localhost:3000`
 - `avanderw.co.za` → `https://high-society.avanderw.co.za`
+- Override: `VITE_SOCKET_SERVER_URL` environment variable
 
-Override via environment variable if needed:
-```
-VITE_SOCKET_SERVER_URL=http://localhost:3000
-```
-
-### 3. State Serialization (`src/lib/multiplayer/serialization.ts`)
-
-Handles serialization/deserialization of game state for transmission:
-
-**Functions:**
-- `serializeGameState(gameState)` - Convert GameState to JSON
-- `deserializeGameState(data, originalState)` - Restore GameState from JSON
-- `applyPartialStateUpdate(currentState, updates)` - Apply incremental updates
+### 4. State Serialization (`src/lib/multiplayer/serialization.ts`)
+**Purpose**: Convert GameState ↔ JSON for network transmission
 
 **Security:**
-- Status deck is NOT serialized to prevent cheating
-- Only revealed/public information is shared
+- ✅ Serializes: Players, revealed cards, public state
+- ❌ Does NOT serialize: Status deck (unrevealed cards)
+- Prevents cheating via network inspection
 
-## Client-Side State Management
+### 5. Orchestrators
+- **GameOrchestrator**: Coordinates local game actions
+- **MultiplayerOrchestrator**: Handles event broadcasting and remote event application
 
-### Event-Driven Updates
+## Synchronization Pattern
 
-Each client:
-1. Maintains its own `GameState` instance
-2. Listens for events from other players
-3. Applies the same game logic locally when events are received
-4. Broadcasts its own actions to other players
+### Action Flow
+```
+1. Local player acts
+   ↓
+2. Apply to local GameState (via GameOrchestrator)
+   ↓
+3. Trigger UI update (store.forceUpdate())
+   ↓
+4. Broadcast event to room (via MultiplayerOrchestrator)
+   ↓
+5. Relay server broadcasts to all clients
+   ↓
+6. Remote clients receive event
+   ↓
+7. Remote clients apply same action to their GameState
+   ↓
+8. Remote clients update their UI
+```
 
-### Synchronization Pattern
-
+### Code Pattern
 ```typescript
-// When local player takes an action
-function placeBid() {
-  // 1. Apply action locally
-  const result = auction.processBid(player, selectedCards);
-  
-  // 2. Broadcast to other players
-  multiplayerService.broadcastEvent(GameEventType.BID_PLACED, {
-    playerId: player.id,
-    playerName: player.name,
-    moneyCardIds: selectedCards.map(c => c.id),
-    totalBid: player.getCurrentBidAmount()
-  });
-  
-  // 3. Update UI
-  updateCounter++;
+// Local action
+const result = store.placeBid(selectedCardIds);
+if (result.success) {
+  // Broadcast after local success
+  multiplayerOrchestrator.broadcastBid(result.bidAmount!);
 }
 
-// When receiving event from another player
-multiplayerService.on(GameEventType.BID_PLACED, (event) => {
-  // Skip own events
-  if (event.playerId === myPlayerId) return;
+// Remote event handling (in MultiplayerOrchestrator)
+service.on(GameEventType.BID_PLACED, (event) => {
+  if (isDuplicateEvent(event.eventId)) return;
   
-  // 1. Find the player
-  const player = gameState.getPlayer(event.data.playerId);
-  const auction = gameState.getCurrentAuction();
+  // Apply action from event data
+  const player = getPlayerById(event.data.playerId);
+  const cards = getMoneyCards(event.data.moneyCardIds);
+  auction.processBid(player, cards);
   
-  // 2. Apply the action
-  const moneyCards = player.getMoneyHand().filter(c => 
-    event.data.moneyCardIds.includes(c.id)
-  );
-  auction.processBid(player, moneyCards);
-  
-  // 3. Update UI
-  updateCounter++;
+  store.forceUpdate(); // Trigger reactivity
 });
 ```
 
-### Deterministic Game Logic
+### Determinism Requirements
+- ✅ Pure domain logic (no randomness during play)
+- ✅ Same inputs → same outputs
+- ✅ Seeded RNG for initial deck shuffle (host broadcasts seed)
+- ✅ Event ordering guaranteed by Socket.IO
 
-For proper synchronization, the game must be deterministic:
-- ✅ **Already deterministic:** All game logic is pure and based on player actions
-- ✅ **No random elements during play:** Card shuffling happens once at game start
-- ⚠️ **Initial shuffle sync:** The host broadcasts the initial shuffled deck order
+## Relay Server Implementation
 
-## Relay Server Requirements
-
-### Socket.IO Events to Implement
-
-The relay server needs to handle:
-
-```typescript
-// Room management
-socket.on('create_room', ({ roomId, playerId, playerName }) => {
-  // Join socket to room
-  socket.join(roomId);
-  // Store player info
-  // Send acknowledgment
-  callback({ success: true });
-});
-
-socket.on('join_room', ({ roomId, playerId, playerName }) => {
-  socket.join(roomId);
-  // Broadcast to room
-  io.to(roomId).emit('player:joined', { playerId, playerName });
-  callback({ success: true });
-});
-
-socket.on('leave_room', ({ roomId, playerId }) => {
-  socket.leave(roomId);
-  io.to(roomId).emit('player:left', { playerId });
-});
-
-// Game events
-socket.on('game_event', (event) => {
-  // Broadcast to everyone in the room (including sender)
-  io.to(event.roomId).emit(event.type, event.data);
-});
-```
-
-### Minimal Server Implementation
-
+### Minimal Server (relay-server.js)
 ```javascript
-const io = require('socket.io')(3000, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
-
-const rooms = new Map(); // roomId -> Set<playerId>
+const io = require('socket.io')(3000);
+const rooms = new Map(); // roomId -> player info
 
 io.on('connection', (socket) => {
+  // Room management
   socket.on('create_room', ({ roomId, playerId, playerName }, callback) => {
     socket.join(roomId);
     rooms.set(roomId, new Set([playerId]));
@@ -178,29 +125,69 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join_room', ({ roomId, playerId, playerName }, callback) => {
-    if (!rooms.has(roomId)) {
-      callback({ success: false, error: 'Room not found' });
-      return;
-    }
-    
+    if (!rooms.has(roomId)) return callback({ success: false });
     socket.join(roomId);
     rooms.get(roomId).add(playerId);
-    
     io.to(roomId).emit('room:joined', { playerId, playerName, roomId });
     callback({ success: true });
   });
 
-  socket.on('leave_room', ({ roomId, playerId }) => {
-    socket.leave(roomId);
-    if (rooms.has(roomId)) {
-      rooms.get(roomId).delete(playerId);
-      io.to(roomId).emit('room:left', { playerId });
-    }
-  });
-
+  // Event broadcasting
   socket.on('game_event', (event) => {
+    io.to(event.roomId).emit(event.type, event.data);
+  });
+});
+```
+
+### Server Responsibilities
+- ✅ Accept connections
+- ✅ Manage rooms (create/join/leave)
+- ✅ Broadcast events to room members
+- ❌ NO game logic validation
+- ❌ NO state persistence
+- ❌ NO anti-cheat
+
+## Security Model
+
+**Trust-Based Design:**
+- Clients can modify local state
+- Clients can send fake events
+- No server-side validation
+
+**Suitable For:**
+- ✅ Friends playing together
+- ✅ Trusted groups
+- ✅ Casual gameplay
+
+**NOT Suitable For:**
+- ❌ Competitive tournaments
+- ❌ Untrusted players
+- ❌ Leaderboards/rankings
+
+**For Untrusted Players, Would Need:**
+- Server-side game state
+- Server validates all actions
+- Server is source of truth
+- Clients become "view only"
+
+## Deployment
+
+**Development:**
+```powershell
+node relay-server.js  # Port 3000
+npm run dev           # Port 5173
+```
+
+**Production:**
+- Deploy relay server to any Node.js host
+- Set `VITE_SOCKET_SERVER_URL` or use auto-detection
+- Build client: `npm run build`
+- Deploy static files to any web host
+
+See [DEPLOY-RELAY-SERVER.md](./DEPLOY-RELAY-SERVER.md) for details.  socket.on('game_event', (event) => {
     io.to(event.roomId).emit(event.type, event);
   });
+
 
   socket.on('disconnect', () => {
     // Clean up player from rooms
@@ -208,128 +195,51 @@ io.on('connection', (socket) => {
 });
 ```
 
-## Usage Flow
+### Server Responsibilities
+- ✅ Accept connections
+- ✅ Manage rooms (create/join/leave)
+- ✅ Broadcast events to room members
+- ❌ NO game logic validation
+- ❌ NO state persistence
+- ❌ NO anti-cheat
 
-### 1. Create/Join Room
+## Security Model
 
-**Host (creates room):**
-```typescript
-const service = getMultiplayerService();
-await service.connect();
-const roomId = await service.createRoom('Alice');
-// Share roomId with other players
-```
+**Trust-Based Design:**
+- Clients can modify local state
+- Clients can send fake events
+- No server-side validation
 
-**Other Players (join room):**
-```typescript
-const service = getMultiplayerService();
-await service.connect();
-await service.joinRoom(roomId, 'Bob');
-```
+**Suitable For:**
+- ✅ Friends playing together
+- ✅ Trusted groups
+- ✅ Casual gameplay
 
-### 2. Start Game
+**NOT Suitable For:**
+- ❌ Competitive tournaments
+- ❌ Untrusted players
+- ❌ Leaderboards/rankings
 
-**Host initiates:**
-```typescript
-// When all players have joined
-startGame(playerNames); // Creates local game state
-service.broadcastEvent(GameEventType.GAME_STARTED, {
-  players: playerNames.map((name, i) => ({ id: playerIds[i], name })),
-  initialState: serializeGameState(gameState)
-});
-```
-
-**Others receive:**
-```typescript
-service.on(GameEventType.GAME_STARTED, (event) => {
-  gameState = deserializeGameState(event.data.initialState);
-  updateCounter++;
-});
-```
-
-### 3. Play Game
-
-Each player action:
-1. Updates local state
-2. Broadcasts event
-3. Other clients receive event and update their state
-
-### 4. Handle Disconnections
-
-```typescript
-service.on(GameEventType.PLAYER_LEFT, (event) => {
-  // Pause game or handle reconnection
-  showNotification(`${event.data.playerName} disconnected`);
-});
-```
+**For Untrusted Players, Would Need:**
+- Server-side game state
+- Server validates all actions
+- Server is source of truth
+- Clients become "view only"
 
 ## Testing Locally
 
-### 1. Start Relay Server
-
-```bash
-node relay-server.js
-# Or use the Socket.IO example server
+**Start servers:**
+```powershell
+node relay-server.js  # Port 3000
+npm run dev           # Port 5173
 ```
 
-### 2. Run Multiple Clients
+**Test multiplayer:**
+- Open multiple browser windows to `localhost:5173`
+- Create room in one window (copy room code)
+- Join same room in other windows
+- Verify state synchronizes across all clients
 
-```bash
-# Terminal 1
-npm run dev
+## Deployment
 
-# Terminal 2
-npm run dev -- --port 5174
-
-# Terminal 3
-npm run dev -- --port 5175
-```
-
-### 3. Test Flow
-
-1. Open first client → Create room → Copy room ID
-2. Open second client → Join room with room ID
-3. First client starts game
-4. Take turns, watch state sync across clients
-
-## Implementation Checklist
-
-- [x] Event type definitions
-- [x] WebSocket service with Socket.IO client
-- [x] State serialization/deserialization
-- [ ] Update GameSetup component for multiplayer
-- [ ] Update main +page.svelte for multiplayer
-- [ ] Add room creation/joining UI
-- [ ] Add player list display
-- [ ] Implement event broadcasting for all actions
-- [ ] Implement event listeners for remote actions
-- [ ] Handle edge cases (disconnections, rejoin, etc.)
-- [ ] Add loading states and error handling
-- [ ] Test with multiple clients
-
-## Security Considerations
-
-### Client-Side Authority
-
-- ✅ Simple to implement
-- ✅ No server logic needed
-- ⚠️ Vulnerable to cheating (players can modify local state)
-- ⚠️ Requires trust between players
-
-### Mitigation Strategies
-
-1. **Validation**: Each client validates received events
-2. **Checksums**: Periodically compare state hashes between clients
-3. **Audit Log**: Keep event history for dispute resolution
-4. **Room Passwords**: Limit access to trusted players
-
-For untrusted environments, consider adding server-side validation.
-
-## Future Enhancements
-
-- **Reconnection**: Save state and allow players to rejoin
-- **Spectator Mode**: Allow watching without playing
-- **Chat**: In-game messaging
-- **Replay**: Save and replay games
-- **Matchmaking**: Automatic room creation and player matching
-- **Server Validation**: Optional server-side game logic validation
+See [DEPLOY-RELAY-SERVER.md](./DEPLOY-RELAY-SERVER.md) for production deployment guide.

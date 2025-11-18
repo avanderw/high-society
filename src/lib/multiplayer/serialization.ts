@@ -13,6 +13,9 @@ import {
 	PlayerColor
 } from '$lib/domain/cards';
 import { RegularAuction, DisgraceAuction, type Auction } from '$lib/domain/auction';
+import { logger } from '$lib/utils/logger';
+
+const ctx = 'Serialization';
 
 // Serializable versions of game objects
 export interface SerializedMoneyCard {
@@ -129,6 +132,12 @@ export function serializeGameState(gameState: GameState): SerializedGameState {
 	const currentAuction = gameState.getCurrentAuction();
 	const publicState = gameState.getPublicState();
 	
+	logger.debug(ctx, 'serializeGameState()', { 
+		hasCurrentAuction: !!currentAuction, 
+		phase: gameState.getCurrentPhase(), 
+		currentPlayerIndex: gameState.getCurrentPlayerIndex() 
+	});
+
 	return {
 		gameId: gameState.gameId,
 		players: gameState.getPlayers().map(serializePlayer),
@@ -205,8 +214,7 @@ export function deserializeAuction(data: SerializedAuction, players: Player[]): 
 	
 	return auction;
 }
-
-export function deserializeGameState(data: SerializedGameState, originalGameState?: GameState): GameState {
+export function deserializeGameState(data: SerializedGameState, options?: { preserveDeck?: boolean }): GameState {
 	// Always create a new GameState to ensure Svelte reactivity triggers
 	// Reusing the original game state prevents reactivity updates
 	const gameState = new GameState(data.gameId, undefined, data.turnTimerSeconds);
@@ -228,13 +236,15 @@ export function deserializeGameState(data: SerializedGameState, originalGameStat
 	(gameState as any).phase = data.phase;
 	(gameState as any).currentPlayerIndex = data.currentPlayerIndex;
 	
-	// Restore deck state - we don't have the actual cards but we need the count
-	// Create a dummy deck with the correct length to maintain the remainingStatusCards count
-	if (data.remainingStatusCards !== undefined) {
+	// Restore deck state - we don't have the actual cards but we need the count for clients.
+	// IMPORTANT: The host maintains the real deck; do NOT overwrite it with a dummy deck.
+	if (!options?.preserveDeck && data.remainingStatusCards !== undefined) {
 		const dummyDeck = new Array(data.remainingStatusCards).fill(null);
 		(gameState as any).statusDeck = dummyDeck;
 	}
 	
+	console.log('[deserializeGameState] Reconstructed state - currentAuction:', !!gameState.getCurrentAuction(), 'phase:', gameState.getCurrentPhase(), 'currentPlayerIndex:', gameState.getCurrentPlayerIndex());
+
 	return gameState;
 }
 
@@ -270,12 +280,11 @@ export function applyPartialStateUpdate(
 	if (updates.gameEndTriggerCount !== undefined) {
 		(currentState as any).gameEndTriggerCount = updates.gameEndTriggerCount;
 	}
-	
-	if (updates.remainingStatusCards !== undefined) {
-		// Update the dummy deck length to reflect the correct remaining cards count
-		const dummyDeck = new Array(updates.remainingStatusCards).fill(null);
-		(currentState as any).statusDeck = dummyDeck;
-	}
+
+	// NOTE: We intentionally do NOT touch statusDeck here.
+	// Clients rely on a dummy deck created during deserializeGameState based on remainingStatusCards,
+	// but the host must always preserve its real deck. To avoid accidentally corrupting the host's
+	// statusDeck via partial updates, we skip updating the deck entirely in this helper.
 	
 	return currentState;
 }

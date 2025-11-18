@@ -1,15 +1,59 @@
 <script lang="ts">
 	import { Clock } from 'lucide-svelte';
+	import { onDestroy } from 'svelte';
 
 	interface Props {
-		timeRemaining: number;
-		totalTime: number;
+		duration: number; // Total duration in seconds
 		playerName?: string;
+		paused?: boolean;
+		onExpired?: () => void;
 	}
 
-	let { timeRemaining, totalTime, playerName }: Props = $props();
+	let { duration, playerName, paused = false, onExpired }: Props = $props();
 
-	const percentage = $derived((timeRemaining / totalTime) * 100);
+	// Internal state - component manages its own countdown
+	let timeRemaining = $state(duration);
+	let intervalId: number | null = null;
+
+	// Reset timer when component remounts (use {#key} in parent)
+	$effect(() => {
+		timeRemaining = duration;
+	});
+
+	// Manage countdown interval
+	$effect(() => {
+		// Clear any existing interval
+		if (intervalId !== null) {
+			clearInterval(intervalId);
+			intervalId = null;
+		}
+
+		// Don't run if paused
+		if (paused) {
+			return;
+		}
+
+		// Start countdown
+		intervalId = window.setInterval(() => {
+			if (timeRemaining > 0) {
+				timeRemaining--;
+				
+				if (timeRemaining === 0 && onExpired) {
+					onExpired();
+				}
+			}
+		}, 1000);
+
+		// Cleanup on unmount or when effect reruns
+		return () => {
+			if (intervalId !== null) {
+				clearInterval(intervalId);
+				intervalId = null;
+			}
+		};
+	});
+
+	const percentage = $derived((timeRemaining / duration) * 100);
 	const color = $derived(
 		percentage > 50 ? 'var(--pico-ins-color)' :
 		percentage > 25 ? 'orange' :

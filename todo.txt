@@ -1,0 +1,2 @@
+Randomise turn order on game start
+Fix status score in the player status to update on score, currently it is static

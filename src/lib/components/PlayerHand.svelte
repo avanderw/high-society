@@ -115,7 +115,7 @@
 		<div class="money-cards">
 			{#each moneyHand as card}
 				<button
-					class="money-card {selectedCards.includes(card.id) ? 'selected' : ''}"
+					class="money-card {selectedCards?.includes(card.id) ? 'selected' : ''}"
 					onclick={() => handleCardToggle(card.id)}
 					style="--card-color: {player.color};"
 					disabled={!isMyTurn}

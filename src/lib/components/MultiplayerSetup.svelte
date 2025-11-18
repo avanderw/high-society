@@ -2,6 +2,9 @@
 	import { getMultiplayerService } from '$lib/multiplayer/service';
 	import { GameEventType, type GameEvent } from '$lib/multiplayer/events';
 	import { normalizeRoomCode, isValidRoomCode } from '$lib/multiplayer/wordlist';
+	import { logger } from '$lib/utils/logger';
+	
+	const ctx = 'MultiplayerSetup';
 	
 	type Props = {
 		onRoomReady: (roomId: string, playerId: string, playerName: string, isHost: boolean, players: Array<{ playerId: string; playerName: string }>, turnTimerSeconds: number) => void;
@@ -21,7 +24,7 @@
 	let isHost = $state(false);
 	let placeholderName = $state('');
 	let copiedToClipboard = $state(false);
-	let turnTimerSeconds = $state(30); // Default 30 seconds per turn
+	let turnTimerSeconds = $state(45); // Default 45 seconds per turn
 
 	const multiplayerService = getMultiplayerService();
 
@@ -163,14 +166,16 @@
 	}
 
 	function handlePlayerJoined(event: any) {
-		console.log('[MultiplayerSetup] Player joined event received:', event);
-		console.log('[MultiplayerSetup] My current player ID:', currentPlayerId);
-		console.log('[MultiplayerSetup] Event player ID:', event.data?.playerId);
+		logger.debug(ctx, 'Player joined event received', { 
+			event, 
+			myPlayerId: currentPlayerId, 
+			eventPlayerId: event.data?.playerId 
+		});
 		if (event.data && event.data.players) {
-			console.log('[MultiplayerSetup] Updating player list:', event.data.players);
+			logger.debug(ctx, 'Updating player list', { players: event.data.players });
 			connectedPlayers = event.data.players;
 		} else {
-			console.warn('[MultiplayerSetup] Event missing data.players:', event);
+			logger.warn(ctx, 'Event missing data.players', { event });
 		}
 	}
 
@@ -179,9 +184,10 @@
 	}
 
 	function handleGameStarted(event: GameEvent) {
-		console.log('[MultiplayerSetup] GAME_STARTED event received, transitioning to game');
-		console.log('[MultiplayerSetup] Event data:', event.data);
-		console.log('[MultiplayerSetup] I am host:', isHost);
+		logger.info(ctx, 'GAME_STARTED event received, transitioning to game', { 
+			eventData: event.data, 
+			isHost 
+		});
 		
 		// CRITICAL: Don't call onRoomReady here, as it may trigger startGame again
 		// Just transition to the game view - the +page.svelte listener will handle the game state
@@ -254,7 +260,7 @@
 				}, 2000);
 			}
 		} catch (err) {
-			console.log('Error sharing:', err);
+			logger.debug(ctx, 'Error sharing', err);
 			// Fallback to copy
 			try {
 				await navigator.clipboard.writeText(shareUrl);
@@ -263,7 +269,7 @@
 					copiedToClipboard = false;
 				}, 2000);
 			} catch (copyErr) {
-				console.error('Failed to copy:', copyErr);
+				logger.error(ctx, 'Failed to copy', copyErr);
 			}
 		}
 	}

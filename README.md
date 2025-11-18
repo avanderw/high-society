@@ -1,224 +1,161 @@
-# High Society - Card Game
+# High Society - Digital Card Game
 
-A digital implementation of Reiner Knizia's High Society auction card game, built with SvelteKit 5 and Pico CSS.
+A multiplayer digital implementation of Reiner Knizia's High Society auction card game.
 
-**📖 [Documentation Index](./DOCUMENTATION-INDEX.md)** | **🚀 [Quick Start Guide](./QUICKSTART-MULTIPLAYER.md)** | **🐛 [Troubleshooting](./TROUBLESHOOTING.md)**
+**📖 [Documentation](./DOCUMENTATION-INDEX.md)** | **🚀 [Multiplayer Setup](./QUICKSTART-MULTIPLAYER.md)** | **🐛 [Troubleshooting](./TROUBLESHOOTING.md)** | **🤖 [AI Context](./AI-CONTEXT.md)**
 
-## Game Overview
+## What is High Society?
 
-High Society is an auction-based card game for 2-5 players where socialites bid on luxury items, prestige, and try to avoid disgrace while managing their money carefully. The goal is to accumulate the highest status without being cast out for having the least money.
+An auction-based card game for 2-5 players where socialites bid on luxury items and prestige while avoiding disgrace. Accumulate the highest status without being cast out for having the least money.
 
 ## Features
 
-- **Multiplayer**: WebSocket-based multiplayer via Socket.IO relay server
-- **Progressive Web App (PWA)**: Installable on desktop and mobile devices
-- **Clean Architecture**: Domain-driven design with clear separation of concerns
-- **Full Game Implementation**: 
-  - 16 status cards (10 luxury, 3 prestige, 3 disgrace)
-  - Complete auction mechanics (regular and disgrace auctions)
-  - Proper game end conditions and scoring
-  - Cast out mechanics for poorest players
-- **Modern UI**: Built with Pico CSS for semantic, accessible styling
-- **Type-Safe**: Written in TypeScript with full type safety
+✅ **Online Multiplayer** - WebSocket-based real-time play via Socket.IO  
+✅ **Progressive Web App** - Install on desktop and mobile  
+✅ **Complete Implementation** - 16 status cards, full auction mechanics, proper scoring  
+✅ **Turn Timer** - Configurable auto-pass for idle players  
+✅ **Clean Architecture** - Domain-driven design, fully type-safe  
+✅ **Modern UI** - Pico CSS semantic styling  
 
-## Tech Stack
+## Quick Start
 
-- **SvelteKit 5** - Modern Svelte framework with runes ($state, $derived, $effect)
-- **TypeScript** - Type-safe development
-- **Pico CSS** - Minimal, semantic CSS framework
-- **Vite** - Fast build tool
-
-## Getting Started
-
-### Installation
-
-```sh
+### Local Play
+```powershell
 npm install
-```
-
-### Development
-
-```sh
-# Start the development server
 npm run dev
-
-# Open in browser
-npm run dev -- --open
 ```
+Open `http://localhost:5173`
 
-The game will be available at `http://localhost:5173`
-
-### Building
-
-```sh
-# Create a production build
-npm run build
-
-# Preview the production build
-npm run preview
-```
-
-## Multiplayer Setup
-
-### Running the Relay Server
-
-The game requires a WebSocket relay server for multiplayer functionality:
-
-```sh
-# Install Socket.IO (first time only)
-npm install socket.io
-
-# Start the relay server
+### Multiplayer
+```powershell
+# Terminal 1: Start relay server
 node relay-server.js
+
+# Terminal 2: Start game
+npm run dev
 ```
 
-The server will start on port 3000 by default. You can customize it:
+Open multiple browser windows to `localhost:5173` and create/join the same room.
 
-```sh
-# Use a different port
-PORT=8080 node relay-server.js
-
-# Restrict CORS origins
-CORS_ORIGIN=https://yourdomain.com node relay-server.js
-```
-
-### Deploying the Relay Server
-
-To deploy the relay server to a Docker environment on another machine:
-
-```sh
-# Package the relay server for deployment
-npm run package:relay
-
-# Or with options
-node package-relay-server.js --output ./my-package --include-env
-```
-
-This creates a deployment package with:
-- All necessary files (relay-server.js, Dockerfile, docker-compose.yml, etc.)
-- A compressed ZIP file for easy transfer
-- README.txt with quick deployment instructions
-
-Copy the generated ZIP file to your Docker host and see **[DEPLOY-RELAY-SERVER.md](./DEPLOY-RELAY-SERVER.md)** for complete deployment instructions.
-
-### Configuring the Client
-
-The client automatically detects the relay server URL based on the hostname:
-- On `localhost`: connects to `http://localhost:3000`
-- On `avanderw.co.za`: connects to `https://high-society.avanderw.co.za`
-
-To override automatic detection, create a `.env` file in the project root:
-
-```env
-VITE_SOCKET_SERVER_URL=http://localhost:3000
-```
-
-### Playing Multiplayer
-
-1. **Host creates a room**:
-   - Click "Create Room"
-   - Share the room code with other players
-
-2. **Players join the room**:
-   - Enter the room code
-   - Enter your name
-   - Click "Join Room"
-
-3. **Start the game**:
-   - Once all players have joined, the host clicks "Start Game"
-
-4. **Play**:
-   - Take turns bidding on cards
-   - Game state automatically synchronizes across all players
-
-See [MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md) for detailed architecture documentation.
+See [QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md) for detailed instructions.
 
 ## How to Play
 
-1. **Setup**: Enter player names (2-5 players)
-2. **Auction Rounds**: 
-   - Each round reveals a status card
-   - Players bid using their money cards
-   - Highest bidder wins the card (or in disgrace auctions, first to pass takes it)
-3. **Game End**: After 4 game-end trigger cards are revealed
-4. **Scoring**: 
-   - Players with the least money are cast out
-   - Remaining player with highest status wins
-   - Tie-breakers: money left, then highest luxury card
+### Setup
+- 2-5 players enter names
+- Each player receives 11 money cards (values 1-12, minus one 6)
+- 16 status cards are shuffled
+
+### Gameplay
+1. **Reveal Card** - New status card is revealed
+2. **Auction** - Players bid using money cards OR pass
+3. **Winner** - Highest bidder gets the card (or first to pass in disgrace auctions)
+4. **Repeat** - Continue until 4 game-end trigger cards revealed
+
+### Scoring
+1. Calculate status: luxury total + prestige multipliers - passé - scandale divider
+2. **Cast out** players with least money
+3. **Winner** is remaining player with highest status
+4. Tie-breaker: most money → highest luxury card
 
 ### Card Types
 
-- **Luxury Cards (1-10)**: Add to your status score
-- **Prestige Cards**: Double your status (stackable!)
-- **Disgrace Cards**:
-  - Faux Pas: Discard a luxury card
-  - Passé: -5 status
-  - Scandale: Halve your final status
+| Type | Effect |
+|------|--------|
+| **Luxury (1-10)** | Add value to status |
+| **Prestige (×2, ×3)** | Multiply final status (stackable!) |
+| **Faux Pas** | Discard highest luxury card |
+| **Passé (-5)** | Subtract 5 from status |
+| **Scandale (÷2)** | Divide final status by 2 |
 
-## Project Structure
+**Game End Triggers:** 3× Prestige, 1× Scandale (green-bordered cards)
 
-```
-src/
-├── lib/
-│   ├── domain/          # Domain layer (game logic)
-│   │   ├── cards.ts     # Card entities and types
-│   │   ├── player.ts    # Player entity
-│   │   ├── gameState.ts # Game state machine
-│   │   ├── auction.ts   # Auction system
-│   │   └── scoring.ts   # Scoring system
-│   └── components/      # UI components
-│       ├── GameSetup.svelte
-│       ├── GameBoard.svelte
-│       ├── AuctionPanel.svelte
-│       ├── PlayerHand.svelte
-│       ├── StatusDisplay.svelte
-│       ├── ScoreBoard.svelte
-│       └── LuxuryDiscardModal.svelte
-└── routes/
-    ├── +layout.svelte   # Root layout with Pico CSS
-    └── +page.svelte     # Main game page
-```
+## Tech Stack
+
+- **SvelteKit 5** - Svelte 5 runes (`$state`, `$derived`, `$effect`)
+- **TypeScript** - Strict mode, full type safety
+- **Pico CSS** - Semantic, classless styling
+- **Socket.IO** - Real-time multiplayer
+- **Vite** - Build tool
+- **Vitest** - Testing (111 tests)
 
 ## Architecture
 
-The game follows clean architecture principles with clear separation between domain logic and UI:
+```
+Domain Layer (Pure TypeScript)
+  ↓ wrapped by
+Store Layer (Svelte 5 Reactive)
+  ↓ coordinated by
+Orchestrator Layer (Game & Multiplayer)
+  ↓ consumed by
+Component Layer (UI)
+```
 
-- **Domain Layer**: Pure business logic (cards, players, game state, auctions, scoring)
-- **UI Layer**: Svelte components using Pico CSS for semantic styling
-- **Type Safety**: Full TypeScript support throughout
+**Key Principles:**
+- Pure domain logic (no framework dependencies)
+- Client-authoritative multiplayer (trusted players)
+- Immutable state patterns
+- Event-driven synchronization
 
-### Key Design Patterns
+See [PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md) and [MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md) for details.
 
-- **State Machine**: Game phase transitions
-- **Strategy Pattern**: Regular vs disgrace auctions
-- **Command Pattern**: Status effects system
+## Development
+
+```powershell
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+npm test -- --watch
+
+# Build for production
+npm run build
+npm run preview
+```
+
+## Deployment
+
+### Client (Static Site)
+```powershell
+npm run build  # Creates build/ folder
+# Deploy build/ to any static host (Vercel, Netlify, GitHub Pages, etc.)
+```
+
+### Server (Relay)
+```powershell
+npm run package:relay  # Creates deployment package
+# See DEPLOY-RELAY-SERVER.md for Docker deployment
+```
+
+**Auto-configuration:**
+- `localhost` → `http://localhost:3000`
+- `avanderw.co.za` → `https://high-society.avanderw.co.za`
+- Override: Set `VITE_SOCKET_SERVER_URL` environment variable
 
 ## Documentation
 
-- [DOCUMENTATION-INDEX.md](./DOCUMENTATION-INDEX.md) - Documentation hub and quick reference
-- [QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md) - Quick start guide for multiplayer
-- [MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md) - Detailed architecture documentation
-- [PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md) - Codebase organization
-- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Common issues and solutions
-- [IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md) - Complete implementation summary
-- [CHANGELOG.md](./CHANGELOG.md) - Version history
-- Game rules and specifications in root directory
+| Document | Purpose |
+|----------|---------|
+| [AI-CONTEXT.md](./AI-CONTEXT.md) | **For AI** - Patterns, architecture, anti-patterns |
+| [DOCUMENTATION-INDEX.md](./DOCUMENTATION-INDEX.md) | Documentation hub |
+| [PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md) | File organization |
+| [MULTIPLAYER-ARCHITECTURE.md](./MULTIPLAYER-ARCHITECTURE.md) | Network design |
+| [QUICKSTART-MULTIPLAYER.md](./QUICKSTART-MULTIPLAYER.md) | Multiplayer setup |
+| [DEPLOY-RELAY-SERVER.md](./DEPLOY-RELAY-SERVER.md) | Production deployment |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Development guide |
+| [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | Common issues |
+| [CHANGELOG.md](./CHANGELOG.md) | Version history |
 
-## Testing
+## Contributing
 
-### Test the Relay Server
-
-```powershell
-# Start relay server
-node relay-server.js
-
-# In another terminal, run test script
-node test-relay.js
-```
-
-The test script will simulate two clients connecting, creating/joining a room, and exchanging events.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and contribution guidelines.
 
 ## Credits
 
-- Game Design: Dr. Reiner Knizia
-- Digital Implementation: Built with ❤️ using SvelteKit and Pico CSS
+**Game Design:** Dr. Reiner Knizia  
+**Digital Implementation:** Built with SvelteKit 5 and Pico CSS
+
+## License
+
+Game design © Reiner Knizia. Digital implementation for educational purposes.

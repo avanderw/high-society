@@ -2,6 +2,9 @@
 import { Player, type PlayerPublicState } from './player';
 import { StatusCard, MoneyCard, PlayerColor, LUXURY_CARDS, PRESTIGE_CARDS, DISGRACE_CARDS, MONEY_CARD_VALUES, DisgraceFauxPas, LuxuryCard } from './cards';
 import { Auction, RegularAuction, DisgraceAuction, isDisgraceCard } from './auction';
+import { loggers } from '../utils/logger';
+
+const log = loggers.domain.gameState;
 
 export enum GamePhase {
   SETUP = 'setup',
@@ -107,8 +110,15 @@ export class GameState {
 
   // Game progression
   startNewRound(): void {
+    log('startNewRound() called', {
+      phase: this.phase,
+      gameEndTriggerCount: this.gameEndTriggerCount,
+      deckLength: this.statusDeck.length
+    });
+    
     // If game is already over, do nothing
     if (this.phase === GamePhase.SCORING || this.phase === GamePhase.FINISHED) {
+      log('Game already over, returning');
       return;
     }
     
@@ -116,6 +126,7 @@ export class GameState {
     
     // Check if game should end AFTER drawing (4th trigger ends game immediately)
     if (this.isGameEnd()) {
+      log('Game end detected after drawing card');
       this.phase = GamePhase.SCORING;
       return;
     }
@@ -126,6 +137,11 @@ export class GameState {
       ? GamePhase.DISGRACE_AUCTION
       : GamePhase.AUCTION;
     this.phase = auctionType;
+    
+    log('startNewRound() success', {
+      newPhase: this.phase,
+      hasAuction: !!this.currentAuction
+    });
   }
 
   private drawStatusCard(): StatusCard {
@@ -139,6 +155,12 @@ export class GameState {
     if (card.isGameEndTrigger) {
       this.gameEndTriggerCount++;
     }
+
+    log('Drew status card', {
+      card: card.name,
+      isGameEnd: this.isGameEnd(),
+      deckRemaining: this.statusDeck.length
+    });
 
     return card;
   }
@@ -189,6 +211,13 @@ export class GameState {
   completeAuction(): void {
     if (!this.currentAuction) return;
 
+    log('completeAuction() before', {
+      hasAuction: !!this.currentAuction,
+      currentPlayerIndex: this.currentPlayerIndex,
+      phase: this.phase,
+      winnerId: this.currentAuction.getWinner()?.id
+    });
+
     const winner = this.currentAuction.getWinner();
     if (winner) {
       // Winner discards their money
@@ -223,6 +252,12 @@ export class GameState {
     }
 
     this.currentAuction = null;
+
+    log('completeAuction() after', {
+      hasAuction: !!this.currentAuction,
+      currentPlayerIndex: this.currentPlayerIndex,
+      isGameEnd: this.isGameEnd()
+    });
 
     // Check if game should end
     if (this.isGameEnd()) {

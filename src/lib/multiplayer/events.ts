@@ -1,4 +1,5 @@
 // WebSocket Event Types for Multiplayer Communication
+// Simplified generic event system using discriminated unions
 
 export enum GameEventType {
 	// Room management
@@ -30,206 +31,51 @@ export enum GameEventType {
 	VALIDATION_ERROR = 'error:validation'
 }
 
-// Base event structure
-export interface GameEvent {
+// Generic event structure using discriminated union pattern
+export interface GameEvent<T = any> {
 	type: GameEventType;
 	roomId: string;
 	playerId: string;
 	timestamp: number;
-	data?: any;
+	data?: T;
 }
 
-// Room management events
-export interface RoomCreatedEvent extends GameEvent {
-	type: GameEventType.ROOM_CREATED;
-	data: {
-		roomId: string;
-		hostPlayerId: string;
-		hostPlayerName: string;
-	};
+// Generic event structure using discriminated union pattern
+export interface GameEvent<T = any> {
+	type: GameEventType;
+	roomId: string;
+	playerId: string;
+	timestamp: number;
+	data?: T;
 }
 
-export interface PlayerJoinedEvent extends GameEvent {
-	type: GameEventType.PLAYER_JOINED;
-	data: {
-		playerId: string;
-		playerName: string;
-		playerCount: number;
-	};
-}
+// Type-safe event payloads (optional for better IDE support)
+export type GameEventData = {
+	[GameEventType.ROOM_CREATED]: { roomId: string; hostPlayerId: string; hostPlayerName: string };
+	[GameEventType.PLAYER_JOINED]: { playerId: string; playerName: string; playerCount: number };
+	[GameEventType.PLAYER_LEFT]: { playerId: string; playerName: string };
+	[GameEventType.GAME_STARTED]: { players: Array<{ id: string; name: string }>; initialState: any; playerMapping?: any };
+	[GameEventType.GAME_RESTART_REQUESTED]: { hostPlayerId: string; hostPlayerName: string };
+	[GameEventType.GAME_RESTART_READY]: { playerId: string; playerName: string; readyCount: number; totalPlayers: number };
+	[GameEventType.STATE_SYNC]: { gameState: any; fromPlayerId: string };
+	[GameEventType.STATE_REQUEST]: { requestingPlayerId: string; requesterName?: string; requesterId?: string };
+	[GameEventType.BID_PLACED]: { playerId: string; playerName: string; moneyCardIds: string[]; totalBid: number; multiplayerPlayerId?: string };
+	[GameEventType.PASS_AUCTION]: { playerId: string; playerName: string; multiplayerPlayerId?: string };
+	[GameEventType.LUXURY_DISCARDED]: { playerId: string; playerName: string; cardId: string; multiplayerPlayerId?: string };
+	[GameEventType.TURN_TIMEOUT]: { playerId: string; playerName: string; currentPlayerIndex: number };
+	[GameEventType.AUCTION_COMPLETE]: { winnerId?: string | null; winnerName?: string | null; cardWon?: any; bidAmount?: number; gameState?: any; needsLuxuryDiscard?: boolean; auctionResult?: any };
+	[GameEventType.ROUND_STARTED]: { currentCard: any; phase: string; currentPlayerIndex: number };
+	[GameEventType.GAME_ENDED]: { rankings: Array<{ playerId: string; playerName: string; rank: number; status: number; money: number }> };
+	[GameEventType.ERROR]: { message: string; code?: string };
+	[GameEventType.VALIDATION_ERROR]: { field: string; message: string };
+};
 
-export interface PlayerLeftEvent extends GameEvent {
-	type: GameEventType.PLAYER_LEFT;
-	data: {
-		playerId: string;
-		playerName: string;
-	};
-}
-
-export interface GameStartedEvent extends GameEvent {
-	type: GameEventType.GAME_STARTED;
-	data: {
-		players: Array<{
-			id: string;
-			name: string;
-		}>;
-		initialState: any; // GamePublicState
-	};
-}
-
-export interface GameRestartRequestedEvent extends GameEvent {
-	type: GameEventType.GAME_RESTART_REQUESTED;
-	data: {
-		hostPlayerId: string;
-		hostPlayerName: string;
-	};
-}
-
-export interface GameRestartReadyEvent extends GameEvent {
-	type: GameEventType.GAME_RESTART_READY;
-	data: {
-		playerId: string;
-		playerName: string;
-		readyCount: number;
-		totalPlayers: number;
-	};
-}
-
-// State synchronization
-export interface StateSyncEvent extends GameEvent {
-	type: GameEventType.STATE_SYNC;
-	data: {
-		gameState: any; // Full serialized game state
-		fromPlayerId: string;
-	};
-}
-
-export interface StateRequestEvent extends GameEvent {
-	type: GameEventType.STATE_REQUEST;
-	data: {
-		requestingPlayerId: string;
-	};
-}
-
-// Player action events
-export interface BidPlacedEvent extends GameEvent {
-	type: GameEventType.BID_PLACED;
-	data: {
-		playerId: string;
-		playerName: string;
-		moneyCardIds: string[];
-		totalBid: number;
-	};
-}
-
-export interface PassAuctionEvent extends GameEvent {
-	type: GameEventType.PASS_AUCTION;
-	data: {
-		playerId: string;
-		playerName: string;
-	};
-}
-
-export interface LuxuryDiscardedEvent extends GameEvent {
-	type: GameEventType.LUXURY_DISCARDED;
-	data: {
-		playerId: string;
-		playerName: string;
-		cardId: string;
-	};
-}
-
-export interface TurnTimeoutEvent extends GameEvent {
-	type: GameEventType.TURN_TIMEOUT;
-	data: {
-		playerId: string;
-		playerName: string;
-		currentPlayerIndex: number;
-	};
-}
-
-// Game progression events
-export interface AuctionCompleteEvent extends GameEvent {
-	type: GameEventType.AUCTION_COMPLETE;
-	data: {
-		winnerId: string | null;
-		winnerName: string | null;
-		cardWon: any; // StatusCard
-		bidAmount: number;
-	};
-}
-
-export interface RoundStartedEvent extends GameEvent {
-	type: GameEventType.ROUND_STARTED;
-	data: {
-		currentCard: any; // StatusCard
-		phase: string; // GamePhase
-		currentPlayerIndex: number;
-	};
-}
-
-export interface GameEndedEvent extends GameEvent {
-	type: GameEventType.GAME_ENDED;
-	data: {
-		rankings: Array<{
-			playerId: string;
-			playerName: string;
-			rank: number;
-			status: number;
-			money: number;
-		}>;
-	};
-}
-
-// Error events
-export interface ErrorEvent extends GameEvent {
-	type: GameEventType.ERROR;
-	data: {
-		message: string;
-		code?: string;
-	};
-}
-
-export interface ValidationErrorEvent extends GameEvent {
-	type: GameEventType.VALIDATION_ERROR;
-	data: {
-		field: string;
-		message: string;
-	};
-}
-
-// Type guards
-export function isRoomEvent(event: GameEvent): event is RoomCreatedEvent | PlayerJoinedEvent | PlayerLeftEvent {
-	return [
-		GameEventType.ROOM_CREATED,
-		GameEventType.PLAYER_JOINED,
-		GameEventType.PLAYER_LEFT
-	].includes(event.type);
-}
-
-export function isActionEvent(event: GameEvent): event is BidPlacedEvent | PassAuctionEvent | LuxuryDiscardedEvent | TurnTimeoutEvent {
-	return [
-		GameEventType.BID_PLACED,
-		GameEventType.PASS_AUCTION,
-		GameEventType.LUXURY_DISCARDED,
-		GameEventType.TURN_TIMEOUT
-	].includes(event.type);
-}
-
-export function isGameProgressionEvent(event: GameEvent): event is AuctionCompleteEvent | RoundStartedEvent | GameEndedEvent {
-	return [
-		GameEventType.AUCTION_COMPLETE,
-		GameEventType.ROUND_STARTED,
-		GameEventType.GAME_ENDED
-	].includes(event.type);
-}
-
-// Event builder helpers
-export function createGameEvent(
-	type: GameEventType,
+// Type-safe event creator
+export function createGameEvent<T extends GameEventType>(
+	type: T,
 	roomId: string,
 	playerId: string,
-	data?: any
+	data?: T extends keyof GameEventData ? GameEventData[T] : any
 ): GameEvent {
 	return {
 		type,
@@ -238,4 +84,30 @@ export function createGameEvent(
 		timestamp: Date.now(),
 		data
 	};
+}
+
+// Simple type guards for event categories
+export function isRoomEvent(event: GameEvent): boolean {
+	return [
+		GameEventType.ROOM_CREATED,
+		GameEventType.PLAYER_JOINED,
+		GameEventType.PLAYER_LEFT
+	].includes(event.type);
+}
+
+export function isActionEvent(event: GameEvent): boolean {
+	return [
+		GameEventType.BID_PLACED,
+		GameEventType.PASS_AUCTION,
+		GameEventType.LUXURY_DISCARDED,
+		GameEventType.TURN_TIMEOUT
+	].includes(event.type);
+}
+
+export function isGameProgressionEvent(event: GameEvent): boolean {
+	return [
+		GameEventType.AUCTION_COMPLETE,
+		GameEventType.ROUND_STARTED,
+		GameEventType.GAME_ENDED
+	].includes(event.type);
 }

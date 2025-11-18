@@ -3,6 +3,9 @@ import { io, type Socket } from 'socket.io-client';
 import type { GameEvent } from './events';
 import { GameEventType, createGameEvent } from './events';
 import { generateRoomCode } from './wordlist';
+import { logger } from '$lib/utils/logger';
+
+const ctx = 'MultiplayerService';
 
 export type EventCallback = (event: GameEvent) => void;
 
@@ -11,6 +14,7 @@ export class MultiplayerService {
 	private roomId: string | null = null;
 	private playerId: string | null = null;
 	private playerName: string | null = null;
+	private hostPlayerId: string | null = null;
 	private eventHandlers: Map<GameEventType | 'any', Set<EventCallback>> = new Map();
 	private connected: boolean = false;
 	
@@ -65,7 +69,7 @@ export class MultiplayerService {
 				}
 			}
 		} catch (error) {
-			console.error('[Multiplayer] Failed to restore session:', error);
+			logger.error(ctx, 'restorePreviousSession() - Failed to restore session', error);
 		}
 	}
 
@@ -112,18 +116,18 @@ export class MultiplayerService {
 				});
 
 				this.socket.on('connect', () => {
-					console.log('[Multiplayer] Connected to server');
+					logger.info(ctx, 'Connected to server');
 					this.connected = true;
 					resolve();
 				});
 
 				this.socket.on('disconnect', () => {
-					console.log('[Multiplayer] Disconnected from server');
+					logger.info(ctx, 'Disconnected from server');
 					this.connected = false;
 				});
 
 			this.socket.on('connect_error', (error: Error) => {
-				console.error('[Multiplayer] Connection error:', error);
+				logger.error(ctx, 'Connection error', error);
 				reject(error);
 			});				// Listen for all game events
 				this.socket.onAny((eventType: string, data: any) => {
@@ -182,9 +186,11 @@ export class MultiplayerService {
 
 		this.playerId = playerId;
 		this.playerName = playerName;
-		this.roomId = roomId;			this.socket.emit('create_room', { roomId, playerId, playerName }, (response: any) => {
+		this.roomId = roomId;
+		this.hostPlayerId = playerId; // Creator is the host
+			this.socket.emit('create_room', { roomId, playerId, playerName }, (response: any) => {
 				if (response.success) {
-					console.log('[Multiplayer] Room created:', roomId);
+					logger.info(ctx, 'Room created', { roomId });
 					this.saveSession();
 					resolve({ roomId, playerId });
 				} else {
@@ -212,7 +218,7 @@ export class MultiplayerService {
 
 			this.socket.emit('join_room', { roomId, playerId, playerName }, (response: any) => {
 				if (response.success) {
-					console.log('[Multiplayer] Joined room:', roomId);
+					logger.info(ctx, 'Joined room', { roomId });
 					this.saveSession();
 					resolve({ roomId, playerId, players: response.players || [] });
 				} else {
@@ -243,15 +249,15 @@ export class MultiplayerService {
 			this.playerName = playerName;
 			this.roomId = roomId;
 
-			console.log('[Multiplayer] Attempting to rejoin room:', roomId, 'as player:', playerId);
+			logger.info(ctx, 'Attempting to rejoin room', { roomId, playerId });
 
 			this.socket.emit('rejoin_room', { roomId, playerId, playerName }, (response: any) => {
 				if (response.success) {
-					console.log('[Multiplayer] Rejoined room:', roomId);
+					logger.info(ctx, 'Rejoined room', { roomId });
 					this.saveSession();
 					resolve({ roomId, playerId, players: response.players || [] });
 				} else {
-					console.error('[Multiplayer] Rejoin failed:', response.error);
+					logger.error(ctx, 'Rejoin failed', { error: response.error });
 					// Clear invalid session
 					this.clearSession();
 					reject(new Error(response.error || 'Failed to rejoin room'));
@@ -284,7 +290,7 @@ export class MultiplayerService {
 	 */
 	requestGameRestart(): void {
 		if (!this.socket || !this.roomId || !this.playerId) {
-			console.warn('[Multiplayer] Cannot request restart: not in a room');
+			logger.warn(ctx, 'requestGameRestart() - Cannot request restart: not in a room');
 			return;
 		}
 
@@ -298,7 +304,7 @@ export class MultiplayerService {
 			}
 		);
 		this.socket.emit('game_event', event);
-		console.log('[Multiplayer] Game restart requested');
+		logger.info(ctx, 'Game restart requested');
 	}
 
 	/**
@@ -306,7 +312,7 @@ export class MultiplayerService {
 	 */
 	signalRestartReady(): void {
 		if (!this.socket || !this.roomId || !this.playerId) {
-			console.warn('[Multiplayer] Cannot signal ready: not in a room');
+			logger.warn(ctx, 'signalRestartReady() - Cannot signal ready: not in a room');
 			return;
 		}
 
@@ -320,7 +326,7 @@ export class MultiplayerService {
 			}
 		);
 		this.socket.emit('game_event', event);
-		console.log('[Multiplayer] Signaled ready for restart');
+		logger.info(ctx, 'Signaled ready for restart');
 	}
 
 	/**
@@ -328,13 +334,13 @@ export class MultiplayerService {
 	 */
 	broadcastEvent(eventType: GameEventType, data?: any): void {
 		if (!this.socket || !this.roomId || !this.playerId) {
-			console.warn('[Multiplayer] Cannot broadcast: not in a room');
+			logger.warn(ctx, 'broadcastEvent() - Cannot broadcast: not in a room');
 			return;
 		}
 
 		const event = createGameEvent(eventType, this.roomId, this.playerId, data);
 		this.socket.emit('game_event', event);
-		console.log('[Multiplayer] Broadcast event:', eventType, data);
+		logger.debug(ctx, 'Broadcast event', { eventType, data });
 	}
 
 	/**
@@ -361,7 +367,14 @@ export class MultiplayerService {
 	 * Handle incoming events
 	 */
 	private handleEvent(event: GameEvent): void {
-		console.log('[Multiplayer] Received event:', event.type, event.data);
+		logger.debug(ctx, 'Received event', { type: event.type, data: event.data });
+
+		// Extract hostPlayerId from room:joined events
+		if (event.type === 'room:joined' && event.data.players && Array.isArray(event.data.players) && event.data.players.length > 0) {
+			// First player in the list is the host
+			this.hostPlayerId = event.data.players[0].playerId;
+			logger.debug(ctx, 'Host player ID set', { hostPlayerId: this.hostPlayerId, myPlayerId: this.playerId });
+		}
 
 		// Call specific event handlers
 		const handlers = this.eventHandlers.get(event.type);
@@ -401,8 +414,7 @@ export class MultiplayerService {
 	 * Check if this player is the host (first player in room)
 	 */
 	isHost(): boolean {
-		// This can be enhanced by tracking host status from server
-		return this.playerId !== null && this.roomId !== null;
+		return this.playerId !== null && this.playerId === this.hostPlayerId;
 	}
 }
 
@@ -437,9 +449,11 @@ function getRelayServerUrl(): string {
 export function getMultiplayerService(serverUrl?: string): MultiplayerService {
 	if (!multiplayerService) {
 		const url = serverUrl || getRelayServerUrl();
-		console.log('[Multiplayer] Initializing service with URL:', url);
-		console.log('[Multiplayer] Hostname:', typeof window !== 'undefined' ? window.location.hostname : 'SSR');
-		console.log('[Multiplayer] Environment variable:', import.meta.env.VITE_SOCKET_SERVER_URL);
+		logger.info(ctx, 'Initializing service', { 
+			url, 
+			hostname: typeof window !== 'undefined' ? window.location.hostname : 'SSR',
+			envVar: import.meta.env.VITE_SOCKET_SERVER_URL 
+		});
 		multiplayerService = new MultiplayerService(url);
 	}
 	return multiplayerService;

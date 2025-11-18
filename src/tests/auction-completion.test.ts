@@ -69,23 +69,28 @@ describe('Auction Completion', () => {
 			expect(auction.getWinner()?.id).toBe(playerB.id);
 		});
 
-		it('should handle winner with no bid (everyone else passed without bidding)', () => {
-			const [playerA, playerB, playerC] = gameState.getPlayers();
-			const auction = gameState.getCurrentAuction()!;
+	it('should give card for free when everyone passes without bidding', () => {
+		const [playerA, playerB, playerC] = gameState.getPlayers();
+		const auction = gameState.getCurrentAuction()!;
+		const card = auction.getCard();
 
-			// Everyone passes without bidding
-			auction.processPass(playerA);
-			auction.processPass(playerB);
+		// Everyone passes without bidding
+		auction.processPass(playerA);
+		auction.processPass(playerB);
 
-			// C is last remaining
-			const result = auction.processPass(playerC);
-			
-			// The last player should be considered the "winner" even with no bid
-			expect(result).toBe(AuctionResult.COMPLETE);
-			expect(auction.getWinner()).toBeTruthy();
-		});
-
-		it('should discard winner money and give them the card', () => {
+		// C is last remaining
+		const result = auction.processPass(playerC);
+		
+		// Auction completes with C as winner (gets card for free)
+		expect(result).toBe(AuctionResult.COMPLETE);
+		expect(auction.getWinner()?.id).toBe(playerC.id);
+		
+		// Complete the auction
+		gameState.completeAuction();
+		
+		// C should have the card
+		expect(playerC.getStatusCards()).toContainEqual(card);
+	});		it('should discard winner money and give them the card', () => {
 			const [playerA, playerB, playerC] = gameState.getPlayers();
 			const auction = gameState.getCurrentAuction()!;
 			const card = auction.getCard();
@@ -147,56 +152,62 @@ describe('Auction Completion', () => {
 		});
 	});
 
-	describe('No-Bid Auctions', () => {
-		let gameState: GameState;
+describe('No-Bid Auctions', () => {
+	let gameState: GameState;
 
-		beforeEach(() => {
-			gameState = new GameState('test-game', testSeed++);
-			gameState.initializeGame(['A', 'B', 'C']);
-			gameState.startNewRound();
-		});
+	beforeEach(() => {
+		// Use seed 1777 which gives luxury cards first
+		gameState = new GameState('test-game', 1777);
+		gameState.initializeGame(['A', 'B', 'C']);
+		gameState.startNewRound();
+	});	it('should give card for free when everyone passes without bidding', () => {
+		const [playerA, playerB, playerC] = gameState.getPlayers();
+		const auction = gameState.getCurrentAuction()!;
+		const card = auction.getCard();
 
-		it('should complete when everyone passes without bidding', () => {
-			const [playerA, playerB, playerC] = gameState.getPlayers();
-			const auction = gameState.getCurrentAuction()!;
+		// Everyone passes
+		auction.processPass(playerA);
+		auction.processPass(playerB);
+		const result = auction.processPass(playerC);
 
-			// Everyone passes
-			auction.processPass(playerA);
-			auction.processPass(playerB);
-			const result = auction.processPass(playerC);
-
-			expect(result).toBe(AuctionResult.COMPLETE);
-			
-			// Last player gets the card for free
-			const winner = auction.getWinner();
-			expect(winner).toBeTruthy();
-		});
-
-		it('should give card to last remaining player for free', () => {
-			const [playerA, playerB, playerC] = gameState.getPlayers();
-			const auction = gameState.getCurrentAuction()!;
-			const card = auction.getCard();
-
-			const initialMoneyCount = playerC.getMoneyHand().length;
-
-			// A and B pass
-			auction.processPass(playerA);
-			auction.processPass(playerB);
-
-			// C is the last one
-			auction.processPass(playerC);
-
-			gameState.completeAuction();
-
-			// C gets the card
-			expect(playerC.getStatusCards()).toContainEqual(card);
-
-			// C didn't spend any money
-			expect(playerC.getMoneyHand().length).toBe(initialMoneyCount);
-		});
+		expect(result).toBe(AuctionResult.COMPLETE);
+		
+		// Last player (C) wins for free
+		const winner = auction.getWinner();
+		expect(winner?.id).toBe(playerC.id);
+		
+		// Complete the auction
+		gameState.completeAuction();
+		
+		// C gets the card
+		expect(playerC.getStatusCards()).toContainEqual(card);
 	});
 
-	describe('State Cleanup Between Rounds', () => {
+	it('should give card for free when last remaining player has not bid', () => {
+		const [playerA, playerB, playerC] = gameState.getPlayers();
+		const auction = gameState.getCurrentAuction()!;
+		const card = auction.getCard();
+
+		const initialMoneyCount = playerC.getMoneyHand().length;
+		const initialCards = playerC.getStatusCards().length;
+
+		// A and B pass
+		auction.processPass(playerA);
+		auction.processPass(playerB);
+
+		// C is the last one (but hasn't bid) - gets it for free
+		auction.processPass(playerC);
+
+		gameState.completeAuction();
+
+		// C DOES get the card (for free)
+		expect(playerC.getStatusCards().length).toBe(initialCards + 1);
+		expect(playerC.getStatusCards()).toContainEqual(card);
+
+		// C didn't spend any money
+		expect(playerC.getMoneyHand().length).toBe(initialMoneyCount);
+	});
+});	describe('State Cleanup Between Rounds', () => {
 		let gameState: GameState;
 
 		beforeEach(() => {
@@ -411,50 +422,52 @@ describe('Auction Completion', () => {
 		});
 	});
 
-	describe('Edge Cases', () => {
-		it('should handle auction with only 2 players', () => {
-			const gameState = new GameState('test-game', testSeed++);
-			gameState.initializeGame(['A', 'B']);
-			gameState.startNewRound();
+describe('Edge Cases', () => {
+	it('should handle auction with only 2 players', () => {
+		// Use seed that gives luxury card (1777 gives Art)
+		const gameState = new GameState('test-game', 1777);
+		gameState.initializeGame(['A', 'B']);
+		gameState.startNewRound();
 
-			const [playerA, playerB] = gameState.getPlayers();
-			const auction = gameState.getCurrentAuction()!;
+		const [playerA, playerB] = gameState.getPlayers();
+		const auction = gameState.getCurrentAuction()!;
+		
+		// A bids
+		const aMoney = playerA.getMoneyHand().find((c: MoneyCard) => c.value === 1000)!;
+		auction.processBid(playerA, [aMoney]);
 
-			// A bids
-			const aMoney = playerA.getMoneyHand().find((c: MoneyCard) => c.value === 1000)!;
-			auction.processBid(playerA, [aMoney]);
+		// B passes - auction completes
+		const result = auction.processPass(playerB);
 
-			// B passes - auction completes
-			const result = auction.processPass(playerB);
-
-			expect(result).toBe(AuctionResult.COMPLETE);
-			expect(auction.getWinner()?.id).toBe(playerA.id);
-		});
-
-		it('should handle auction with 5 players', () => {
-			const gameState = new GameState('test-game', testSeed++);
-			gameState.initializeGame(['A', 'B', 'C', 'D', 'E']);
-			gameState.startNewRound();
-
-			const players = gameState.getPlayers();
-			const auction = gameState.getCurrentAuction()!;
-
-			// A bids
-			const aMoney = players[0].getMoneyHand().find((c: MoneyCard) => c.value === 1000)!;
-			auction.processBid(players[0], [aMoney]);
-
-			// B, C, D pass
-			auction.processPass(players[1]);
-			auction.processPass(players[2]);
-			auction.processPass(players[3]);
-
-			// Should still be active with 2 players
-			expect(auction.isComplete()).toBe(false);
-
-			// E passes - auction completes
-			const result = auction.processPass(players[4]);
-			expect(result).toBe(AuctionResult.COMPLETE);
-			expect(auction.getWinner()?.id).toBe(players[0].id);
-		});
+		expect(result).toBe(AuctionResult.COMPLETE);
+		expect(auction.getWinner()?.id).toBe(playerA.id);
 	});
+
+	it('should handle auction with 5 players', () => {
+		// Use specific seed for deterministic behavior
+		const gameState = new GameState('test-game', 9002);
+		gameState.initializeGame(['A', 'B', 'C', 'D', 'E']);
+		gameState.startNewRound();
+
+		const players = gameState.getPlayers();
+		const auction = gameState.getCurrentAuction()!;
+
+		// A bids
+		const aMoney = players[0].getMoneyHand().find((c: MoneyCard) => c.value === 1000)!;
+		auction.processBid(players[0], [aMoney]);
+
+		// B, C, D pass
+		auction.processPass(players[1]);
+		auction.processPass(players[2]);
+		auction.processPass(players[3]);
+
+		// Should still be active with 2 players
+		expect(auction.isComplete()).toBe(false);
+
+		// E passes - auction completes
+		const result = auction.processPass(players[4]);
+		expect(result).toBe(AuctionResult.COMPLETE);
+		expect(auction.getWinner()?.id).toBe(players[0].id);
+	});
+});
 });
