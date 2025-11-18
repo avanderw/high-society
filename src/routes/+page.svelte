@@ -166,7 +166,7 @@
 		return false;
 	}
 
-	function startGame(playerNames: string[]) {
+	function startGame(playerNames: string[], lobbyIndexToGameIndex?: number[]) {
 		try {
 			const game = new GameState('game-' + Date.now());
 			game.initializeGame(playerNames);
@@ -186,9 +186,11 @@
 			
 			// Create mapping from multiplayer player IDs to game player indices
 			playerIdToGameIndex = new Map();
-			lobbyPlayers.forEach((lobbyPlayer, index) => {
-				playerIdToGameIndex.set(lobbyPlayer.playerId, index);
-				console.log(`Mapping ${lobbyPlayer.playerId} -> player index ${index} (${playerNames[index]})`);
+			lobbyPlayers.forEach((lobbyPlayer, lobbyIndex) => {
+				// If we have a shuffle mapping, use it; otherwise use direct mapping
+				const gameIndex = lobbyIndexToGameIndex ? lobbyIndexToGameIndex[lobbyIndex] : lobbyIndex;
+				playerIdToGameIndex.set(lobbyPlayer.playerId, gameIndex);
+				console.log(`Mapping ${lobbyPlayer.playerId} -> player index ${gameIndex} (${playerNames[gameIndex]})`);
 			});
 			
 			// Exit lobby mode
@@ -202,26 +204,46 @@
 	function startGameAsHost(playerNames: string[]) {
 		console.log('=== HOST: STARTING GAME ===');
 		
-		// Initialize the game locally
-		startGame(playerNames);
+		// Randomize player order to make play fair (not based on connection order)
+		const shuffledIndices = Array.from({ length: playerNames.length }, (_, i) => i);
+		for (let i = shuffledIndices.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
+		}
+		
+		// Create shuffled player names array
+		const shuffledPlayerNames = shuffledIndices.map(i => playerNames[i]);
+		console.log('Original player order:', playerNames);
+		console.log('Shuffled player order:', shuffledPlayerNames);
+		console.log('Shuffle mapping:', shuffledIndices);
+		
+		// Create inverse mapping: for each lobby index, what is their game index?
+		const lobbyIndexToGameIndex = new Array(shuffledIndices.length);
+		shuffledIndices.forEach((lobbyIndex, gameIndex) => {
+			lobbyIndexToGameIndex[lobbyIndex] = gameIndex;
+		});
+		
+		// Initialize the game locally with shuffled names
+		startGame(shuffledPlayerNames, lobbyIndexToGameIndex);
 		
 		if (!gameState) {
 			console.error('Failed to initialize game state');
 			return;
 		}
 		
-		// Broadcast to all clients
-		const playerMapping = lobbyPlayers.map((lobbyPlayer, index) => ({
+		// Broadcast to all clients with the shuffle mapping
+		// Each lobby player's multiplayer ID maps to their shuffled game position
+		const playerMapping = lobbyPlayers.map((lobbyPlayer, lobbyIndex) => ({
 			multiplayerId: lobbyPlayer.playerId,
-			gamePlayerIndex: index,
-			playerName: playerNames[index]
+			gamePlayerIndex: lobbyIndexToGameIndex[lobbyIndex],
+			playerName: shuffledPlayerNames[lobbyIndexToGameIndex[lobbyIndex]]
 		}));
 		
 		// Get players from non-null gameState
 		const gamePlayers = gameState.getPlayers();
 		
 		const eventData = {
-			players: playerNames.map((name, i) => ({ 
+			players: shuffledPlayerNames.map((name, i) => ({ 
 				id: gamePlayers[i].id, 
 				name 
 			})),
@@ -1500,7 +1522,7 @@
 				<div class="host-controls">
 					<p>You are the host. Start the game when everyone is ready.</p>
 					<button 
-						onclick={() => startGame(lobbyPlayers.map(p => p.playerName))}
+						onclick={() => startGameAsHost(lobbyPlayers.map(p => p.playerName))}
 						disabled={lobbyPlayers.length < 2 || lobbyPlayers.length > 5}
 						class="primary"
 					>
