@@ -595,6 +595,7 @@
 		{#if store.gameState}
 			<StatusDisplay
 				players={store.gameState.getPlayers()}
+				updateKey={store.updateCounter}
 				currentPlayerIndex={store.gameState.getCurrentPlayerIndex()}
 			/>
 		{/if}
@@ -606,6 +607,7 @@
 				currentPlayer={store.currentPlayer}
 				currentPlayerIndex={store.gameState.getCurrentPlayerIndex()}
 				allPlayers={store.gameState.getPlayers()}
+				updateKey={store.updateCounter}
 			/>
 		{/if}
 		
@@ -621,6 +623,7 @@
 				onPass={requestPass}
 				isMultiplayer={roomId !== ''}
 				remainingStatusCards={store.remainingStatusCards}
+				updateKey={store.updateCounter}
 			/>
 		{/if}
 		
