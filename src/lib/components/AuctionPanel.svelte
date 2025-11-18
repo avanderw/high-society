@@ -52,6 +52,7 @@
 			player,
 			gameIndex: index,
 			currentStatus: calculator.calculate(player.getStatusCards()),
+			currentBid: player.getCurrentBidAmount(),
 			statusCards: player.getStatusCards().sort((a, b) => {
 				if (a instanceof LuxuryCard && b instanceof LuxuryCard) {
 					return a.value - b.value;
@@ -64,15 +65,27 @@
 			})
 		}));
 	});
+
+	// Get highest bid and winner info from auction
+	const highestBid = $derived(auction?.getCurrentHighestBid() ?? 0);
+	const hasHighestBid = $derived((player: Player) => {
+		if (!auction || highestBid === 0) return false;
+		return player.getCurrentBidAmount() === highestBid;
+	});
 </script>
 
 <article>
 	<header>
 		<h3>Player Status</h3>
+		{#if auction && highestBid > 0}
+			<small class="highest-bid-display">
+				Current Highest Bid: <strong>{highestBid.toLocaleString()} Francs</strong>
+			</small>
+		{/if}
 	</header>
 
 	<section>
-		{#each playerStatuses as { player, gameIndex, currentStatus, statusCards }}
+		{#each playerStatuses as { player, gameIndex, currentStatus, currentBid, statusCards }}
 				<div class="player-status" class:disconnected={!isPlayerConnected(gameIndex)}>
 					<div class="player-header">
 						<span style="color: {player.color};">●</span>
@@ -95,6 +108,13 @@
 						<span class="status-value">Status: {currentStatus}</span>
 						{#if !isActive(player.id)}
 							<small class="passed-badge">(Passed)</small>
+						{:else if auction && currentBid > 0}
+							<span class="current-bid" class:highest-bid={hasHighestBid(player)}>
+								Bid: {currentBid.toLocaleString()}F
+								{#if hasHighestBid(player)}
+									<small class="highest-badge">↑ Highest</small>
+								{/if}
+							</span>
 						{/if}
 						{#if player.getPendingLuxuryDiscard()}
 							<mark style="background-color: var(--pico-del-color);">Must Discard</mark>
@@ -124,6 +144,23 @@
 </article>
 
 <style>
+	header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.highest-bid-display {
+		color: var(--pico-ins-color);
+		font-size: clamp(0.75rem, 1.8vw, 0.875rem);
+	}
+
+	.highest-bid-display strong {
+		font-size: clamp(0.875rem, 2vw, 1rem);
+	}
+
 	section {
 		font-size: clamp(0.875rem, 2vw, 1rem);
 	}
@@ -217,6 +254,28 @@
 	.passed-badge {
 		color: var(--pico-muted-color);
 		font-style: italic;
+	}
+
+	.current-bid {
+		color: var(--pico-primary);
+		font-weight: 600;
+		font-size: clamp(0.875rem, 2vw, 1rem);
+		padding: 0.125rem 0.375rem;
+		border-radius: var(--pico-border-radius);
+		background: var(--pico-card-background-color);
+		border: 1px solid var(--pico-primary);
+	}
+
+	.current-bid.highest-bid {
+		border-color: var(--pico-ins-color);
+		color: var(--pico-ins-color);
+		font-weight: 700;
+	}
+
+	.highest-badge {
+		color: var(--pico-ins-color);
+		font-weight: bold;
+		margin-left: 0.25rem;
 	}
 
 	.status-cards {
