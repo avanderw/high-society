@@ -154,11 +154,16 @@
 
 	.highest-bid-display {
 		color: var(--pico-ins-color);
-		font-size: clamp(0.75rem, 1.8vw, 0.875rem);
+		font-size: clamp(0.875rem, 2.2vw, 1rem);
+		font-weight: 600;
+		padding: 0.5rem;
+		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(0, 255, 0, 0.05) 100%);
+		border-radius: var(--pico-border-radius);
+		border: 2px solid var(--pico-ins-color);
 	}
 
 	.highest-bid-display strong {
-		font-size: clamp(0.875rem, 2vw, 1rem);
+		font-size: clamp(1rem, 2.5vw, 1.25rem);
 	}
 
 	section {
@@ -170,13 +175,15 @@
 		margin-bottom: 0.5rem;
 		background-color: var(--pico-card-sectioning-background-color);
 		border-radius: var(--pico-border-radius);
-		border-left: 3px solid transparent;
-		transition: opacity 0.3s ease;
+		border-left: 4px solid transparent;
+		transition: opacity 0.3s ease, border-color 0.3s ease;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 	}
 
 	.player-status.disconnected {
 		opacity: 0.5;
 		border-left-color: var(--pico-del-color);
+		box-shadow: none;
 	}
 
 	.player-status:has(.passed-badge) {
@@ -247,8 +254,8 @@
 
 	.status-value {
 		color: var(--pico-primary);
-		font-weight: 600;
-		font-size: clamp(0.875rem, 2vw, 1rem);
+		font-weight: 700;
+		font-size: clamp(1rem, 2.5vw, 1.25rem);
 	}
 
 	.passed-badge {

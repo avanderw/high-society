@@ -13,13 +13,27 @@
 	import LuxuryDiscardModal from '$lib/components/LuxuryDiscardModal.svelte';
 	import AuctionResultModal from '$lib/components/AuctionResultModal.svelte';
 	import UpdatePrompt from '$lib/components/UpdatePrompt.svelte';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ErrorToast from '$lib/components/ErrorToast.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import TurnTimer from '$lib/components/TurnTimer.svelte';
+	import StatisticsModal from '$lib/components/StatisticsModal.svelte';
+	import SettingsModal from '$lib/components/SettingsModal.svelte';
+	import ReconnectionBanner from '$lib/components/ReconnectionBanner.svelte';
 	
-	import { Target, Clock, Wifi, WifiOff } from 'lucide-svelte';
+	import { Target, Clock, Wifi, WifiOff, BarChart3, Settings } from 'lucide-svelte';
 	import { page } from '$app/stores';
 	
 	import { getMultiplayerService } from '$lib/multiplayer/service';
 	import { GameEventType, type GameEvent } from '$lib/multiplayer/events';
 	import { serializeGameState, deserializeGameState, serializeStatusCard, deserializeStatusCard } from '$lib/multiplayer/serialization';
+	import { playSound, SoundEffect } from '$lib/utils/audio';
+	import { vibrate, HapticPattern, initHaptics } from '$lib/utils/haptics';
+	import { ReconnectionManager } from '$lib/utils/reconnection';
+	import { updateStatsAfterGame, type GameStats } from '$lib/utils/statistics';
+	
+	// Initialize haptics on load
+	initHaptics();
 	
 	// Multiplayer state (always multiplayer now)
 	let roomId = $state('');
@@ -42,6 +56,24 @@
 	let showRejoinPrompt = $state(false);
 	let isRejoining = $state(false);
 	let rejoinError = $state('');
+	let reconnectionManager: ReconnectionManager | null = null;
+	let reconnecting = $state(false);
+	let reconnectionAttempt = $state(0);
+	let reconnectionDelay = $state(0);
+	
+	// UI state
+	let showStatistics = $state(false);
+	let showSettings = $state(false);
+	let showConfirmDialog = $state(false);
+	let confirmDialogData = $state<{
+		title: string;
+		message: string;
+		onConfirm: () => void;
+		type?: 'warning' | 'danger' | 'info';
+	} | null>(null);
+	let toastMessage = $state('');
+	let toastType = $state<'error' | 'warning' | 'info' | 'success'>('error');
+	let showToast = $state(false);
 	
 	// Map multiplayer player IDs to game player indices
 	let playerIdToGameIndex = $state<Map<string, number>>(new Map());
@@ -153,6 +185,44 @@
 		}
 	});
 
+	// Track game statistics when game ends
+	$effect(() => {
+		if (gameState && currentPhase === GamePhase.GAME_OVER && localPlayer) {
+			const scoringService = new GameScoringService();
+			const rankings = scoringService.calculateFinalRankings(allPlayers);
+			const myRanking = rankings.find(r => r.player.id === localPlayer.id);
+			
+			if (myRanking) {
+				const won = myRanking.rank === 1 && !myRanking.isCastOut;
+				const luxuryCards = localPlayer.getStatusCards()
+					.filter(c => c.name !== 'Prestige' && c.name !== 'Faux Pas' && c.name !== 'Passé' && c.name !== 'Scandale')
+					.map(c => c.name);
+				const prestigeCount = localPlayer.getStatusCards().filter(c => c.name === 'Prestige').length;
+				const disgraceCount = localPlayer.getStatusCards().filter(c => 
+					c.name === 'Faux Pas' || c.name === 'Passé' || c.name === 'Scandale'
+				).length;
+				
+				// Calculate money spent (starting - remaining)
+				const STARTING_MONEY = 106000;
+				const moneySpent = STARTING_MONEY - myRanking.remainingMoney;
+				
+				updateStatsAfterGame(
+					won,
+					myRanking.finalStatus,
+					moneySpent,
+					myRanking.remainingMoney,
+					myRanking.isCastOut,
+					luxuryCards,
+					prestigeCount,
+					disgraceCount
+				);
+				
+				playSound(won ? SoundEffect.GAME_END : SoundEffect.ERROR);
+				vibrate(won ? HapticPattern.SUCCESS : HapticPattern.HEAVY);
+			}
+		}
+	});
+
 	// Handle turn timeout - auto-pass the current player
 	function handleTurnTimeout() {
 		if (!gameState || !currentPlayerObj) return;
@@ -177,6 +247,13 @@
 
 		// Apply the pass locally
 		pass();
+	}
+
+	// Helper function to show toast messages
+	function showToastMessage(message: string, type: 'error' | 'warning' | 'info' | 'success' = 'error') {
+		toastMessage = message;
+		toastType = type;
+		showToast = true;
 	}
 
 	// Helper to prevent duplicate event processing
@@ -941,6 +1018,9 @@
 		// Only allow current player to bid - use isMyTurn derived value
 		if (!isMyTurn) {
 			errorMessage = 'Not your turn!';
+			playSound(SoundEffect.ERROR);
+			vibrate(HapticPattern.ERROR);
+			showToastMessage('Not your turn!', 'error');
 			console.log('Bid rejected: not your turn. isMyTurn =', isMyTurn);
 			return;
 		}
@@ -960,6 +1040,8 @@
 
 			if (moneyCards.length === 0) {
 				errorMessage = 'Please select at least one money card';
+				playSound(SoundEffect.ERROR);
+				showToastMessage('Please select at least one money card', 'warning');
 				return;
 			}
 
@@ -971,6 +1053,10 @@
 			console.log('Player current bid after:', currentPlayer.getCurrentBidAmount());
 			console.log('Auction highest bid after:', auction.getCurrentHighestBid());
 			console.log('Bid result:', result);
+
+			// Play success sound and haptics
+			playSound(SoundEffect.BID_PLACE);
+			vibrate(HapticPattern.SUCCESS);
 
 			selectedMoneyCards = [];
 			errorMessage = '';
@@ -1002,16 +1088,53 @@
 				console.log('New current player:', gameState.getCurrentPlayer().name);
 				console.log('New current player index:', gameState.getCurrentPlayerIndex());
 				console.log('Is new player active?', auction.getActivePlayers().has(gameState.getCurrentPlayer().id));
+				
+				// Play turn change sound
+				playSound(SoundEffect.TURN_CHANGE);
+				
 				// Force reactivity update
 				updateCounter++;
 			}
 		} catch (error) {
 			console.error('Bid error:', error);
 			errorMessage = error instanceof Error ? error.message : 'Invalid bid';
+			playSound(SoundEffect.ERROR);
+			vibrate(HapticPattern.ERROR);
+			showToastMessage(errorMessage, 'error');
 			// Clear selection since bid failed
 			selectedMoneyCards = [];
 			// Force reactivity update
 			updateCounter++;
+		}
+	}
+
+	function requestPass() {
+		if (!gameState) return;
+
+		const auction = gameState.getCurrentAuction();
+		const currentPlayer = gameState.getCurrentPlayer();
+		
+		if (!auction || !currentPlayer) return;
+		
+		// Check if player has highest bid - confirm before passing
+		const highestBid = auction.getCurrentHighestBid();
+		const playerBid = currentPlayer.getCurrentBidAmount();
+		
+		if (highestBid > 0 && playerBid === highestBid) {
+			confirmDialogData = {
+				title: 'Pass with Highest Bid?',
+				message: `You currently have the highest bid (${highestBid.toLocaleString()} Francs). Are you sure you want to pass?`,
+				onConfirm: () => {
+					showConfirmDialog = false;
+					confirmDialogData = null;
+					pass();
+				},
+				type: 'warning'
+			};
+			showConfirmDialog = true;
+			vibrate(HapticPattern.WARNING);
+		} else {
+			pass();
 		}
 	}
 
@@ -1026,6 +1149,9 @@
 		// Only allow current player to pass - use isMyTurn derived value
 		if (!isMyTurn) {
 			errorMessage = 'Not your turn!';
+			playSound(SoundEffect.ERROR);
+			vibrate(HapticPattern.ERROR);
+			showToastMessage('Not your turn!', 'error');
 			console.log('Pass rejected: not your turn. isMyTurn =', isMyTurn);
 			return;
 		}
@@ -1044,6 +1170,10 @@
 			selectedMoneyCards = [];
 			errorMessage = '';
 			
+			// Play pass sound
+			playSound(SoundEffect.PASS);
+			vibrate(HapticPattern.LIGHT);
+			
 			// Broadcast pass to other players
 			multiplayerService.broadcastEvent(GameEventType.PASS_AUCTION, {
 				playerId: currentPlayer.id,
@@ -1060,11 +1190,17 @@
 					nextIndex = (nextIndex + 1) % gameState.getPlayers().length;
 				}
 				gameState.setCurrentPlayerIndex(nextIndex);
+				
+				// Play turn change sound
+				playSound(SoundEffect.TURN_CHANGE);
+				
 				// Force reactivity update
 				updateCounter++;
 			}
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Cannot pass';
+			playSound(SoundEffect.ERROR);
+			showToastMessage(errorMessage, 'error');
 			// Force reactivity update
 			updateCounter++;
 		}
@@ -1107,6 +1243,8 @@
 			if (card) {
 				auctionResultData = { winner, card, winningBid, isDisgrace, losersInfo };
 				showAuctionResult = true;
+				playSound(SoundEffect.AUCTION_WIN);
+				vibrate(HapticPattern.MEDIUM);
 			}
 			updateCounter++;
 			return;
@@ -1116,9 +1254,11 @@
 		if (card) {
 			auctionResultData = { winner, card, winningBid, isDisgrace, losersInfo };
 			showAuctionResult = true;
+			playSound(SoundEffect.AUCTION_WIN);
 		}
 		
 		gameState.completeAuction();
+		playSound(SoundEffect.CARD_DEAL);
 
 		// Check if winner needs to discard luxury card
 		const winnerWithPending = gameState.getPlayers().find(p => p.getPendingLuxuryDiscard());
@@ -1594,6 +1734,14 @@
 					</div>
 				</div>
 			{/if}
+			<div class="header-actions">
+				<button onclick={() => showStatistics = true} class="outline secondary" aria-label="View Statistics" title="Statistics">
+					<BarChart3 size={20} />
+				</button>
+				<button onclick={() => showSettings = true} class="outline secondary" aria-label="Open Settings" title="Settings">
+					<Settings size={20} />
+				</button>
+			</div>
 		</div>
 	</header>
 
@@ -1824,7 +1972,7 @@
 						isMyTurn={isMyTurn}
 						auction={currentAuction ?? null}
 						onBid={placeBid}
-						onPass={pass}
+						onPass={requestPass}
 						isMultiplayer={true}
 						remainingStatusCards={remainingStatusCards}
 					/>
@@ -1917,6 +2065,60 @@
 			</article>
 		</dialog>
 	{/if}
+
+	<!-- Modals and Overlays -->
+	{#if showConfirmDialog && confirmDialogData}
+		<ConfirmDialog
+			title={confirmDialogData.title}
+			message={confirmDialogData.message}
+			onConfirm={confirmDialogData.onConfirm}
+			onCancel={() => {
+				showConfirmDialog = false;
+				confirmDialogData = null;
+			}}
+			type={confirmDialogData.type}
+		/>
+	{/if}
+
+	{#if showToast}
+		<ErrorToast
+			message={toastMessage}
+			type={toastType}
+			onDismiss={() => showToast = false}
+			duration={5000}
+		/>
+	{/if}
+
+	{#if showStatistics}
+		<StatisticsModal onClose={() => showStatistics = false} />
+	{/if}
+
+	{#if showSettings}
+		<SettingsModal onClose={() => showSettings = false} />
+	{/if}
+
+	{#if reconnecting && reconnectionAttempt > 0}
+		<ReconnectionBanner
+			attempt={reconnectionAttempt}
+			maxAttempts={10}
+			nextDelay={reconnectionDelay}
+			onCancel={() => {
+				if (reconnectionManager) {
+					reconnectionManager.stop();
+				}
+				reconnecting = false;
+			}}
+		/>
+	{/if}
+
+	<!-- Turn Timer (shown during active game) -->
+	{#if !inLobby && currentPhase !== GamePhase.GAME_OVER && turnTimeRemaining > 0 && currentPlayerObj}
+		<TurnTimer
+			timeRemaining={turnTimeRemaining}
+			totalTime={turnTimerSeconds}
+			playerName={currentPlayerObj.name}
+		/>
+	{/if}
 </main>
 
 <style>
@@ -1950,7 +2152,7 @@
 
 	.header-content {
 		display: grid;
-		grid-template-columns: auto 1fr auto;
+		grid-template-columns: auto 1fr auto auto;
 		align-items: center;
 		gap: 0.5rem;
 	}
@@ -1959,6 +2161,21 @@
 		.header-content {
 			gap: 1rem;
 		}
+	}
+
+	.header-actions {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
+	.header-actions button {
+		padding: 0.375rem;
+		margin: 0;
+		min-width: auto;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.header-end-game {

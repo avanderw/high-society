@@ -73,6 +73,45 @@
 		text-align: center;
 		background: var(--pico-card-background-color);
 		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+		animation: cardReveal 0.4s ease-out;
+		position: relative;
+		overflow: hidden;
+	}
+
+	@keyframes cardReveal {
+		from {
+			opacity: 0;
+			transform: translateY(-30px) rotateX(15deg);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) rotateX(0);
+		}
+	}
+
+	.status-card::before {
+		content: '';
+		position: absolute;
+		top: -50%;
+		left: -50%;
+		width: 200%;
+		height: 200%;
+		background: linear-gradient(
+			45deg,
+			transparent 30%,
+			rgba(255, 255, 255, 0.1) 50%,
+			transparent 70%
+		);
+		animation: shimmer 3s infinite;
+	}
+
+	@keyframes shimmer {
+		0% {
+			transform: translateX(-100%) translateY(-100%) rotate(45deg);
+		}
+		100% {
+			transform: translateX(100%) translateY(100%) rotate(45deg);
+		}
 	}
 
 	@media (min-width: 768px) {
@@ -88,6 +127,15 @@
 		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(255, 0, 0, 0.1) 100%);
 	}
 
+	.status-card.disgrace::before {
+		background: linear-gradient(
+			45deg,
+			transparent 30%,
+			rgba(255, 0, 0, 0.1) 50%,
+			transparent 70%
+		);
+	}
+
 	.status-card h2 {
 		margin: 0 0 0.75rem 0;
 		font-size: clamp(1.25rem, 4vw, 1.5rem);
@@ -96,6 +144,13 @@
 	@media (min-width: 768px) {
 		.status-card h2 {
 			margin: 0 0 1rem 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.status-card,
+		.status-card::before {
+			animation: none;
 		}
 	}
 

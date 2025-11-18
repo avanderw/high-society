@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Player } from '$lib/domain/player';
 	import type { Auction } from '$lib/domain/auction';
+	import { vibrate, HapticPattern } from '$lib/utils/haptics';
 
 	interface Props {
 		player: Player;
@@ -16,6 +17,21 @@
 	}
 
 	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true, auction, onBid, onPass, isMultiplayer = false, remainingStatusCards = 0 }: Props = $props();
+
+	function handleCardToggle(cardId: string) {
+		vibrate(HapticPattern.SELECTION);
+		onToggleCard(cardId);
+	}
+
+	function handleBid() {
+		vibrate(HapticPattern.SUCCESS);
+		onBid();
+	}
+
+	function handlePass() {
+		vibrate(HapticPattern.LIGHT);
+		onPass();
+	}
 
 	// Track whether we're on mobile (for default details state)
 	let isMobile = $state(false);
@@ -100,7 +116,7 @@
 			{#each moneyHand as card}
 				<button
 					class="money-card {selectedCards.includes(card.id) ? 'selected' : ''}"
-					onclick={() => onToggleCard(card.id)}
+					onclick={() => handleCardToggle(card.id)}
 					style="--card-color: {player.color};"
 					disabled={!isMyTurn}
 				>
@@ -163,14 +179,14 @@
 			
 			<div class="grid">
 				<button 
-					onclick={onBid} 
+					onclick={handleBid} 
 					disabled={!canBid || totalSelected === 0}
 					class="primary"
 				>
 					Place Bid ({totalSelected.toLocaleString()})
 				</button>
 				<button 
-					onclick={onPass}
+					onclick={handlePass}
 					class="secondary"
 				>
 					Pass
@@ -215,6 +231,18 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
+		animation: cardSlideIn 0.3s ease-out;
+	}
+
+	@keyframes cardSlideIn {
+		from {
+			opacity: 0;
+			transform: translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 
 	@media (min-width: 768px) {
@@ -249,6 +277,12 @@
 		border-width: 3px;
 		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, var(--card-color) 10%, var(--pico-card-background-color) 100%);
 		box-shadow: 0 0 12px var(--card-color);
+		animation: cardSelect 0.2s ease-out;
+	}
+
+	@keyframes cardSelect {
+		0%, 100% { transform: translateY(0); }
+		50% { transform: translateY(-8px) scale(1.05); }
 	}
 
 	.money-card.bid {
@@ -328,6 +362,13 @@
 	@media (min-width: 768px) {
 		button {
 			padding: 0.75rem 1rem;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.money-card,
+		.money-card.selected {
+			animation: none;
 		}
 	}
 
