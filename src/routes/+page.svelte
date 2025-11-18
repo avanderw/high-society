@@ -1674,6 +1674,7 @@
 						onBid={placeBid}
 						onPass={pass}
 						isMultiplayer={true}
+						remainingStatusCards={remainingStatusCards}
 					/>
 				{/if}
 			</div>

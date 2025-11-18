@@ -1,6 +1,6 @@
 I need to update the game to be more mobile friendly, there is too much scrolling
 There is no indication of your current bid when waiting or what the other bid composition is when waiting
 ✅ Randomise player order so that play is not in the order of connecting
-Add a warning for players about to spend 80% of their total money before there are 11 cards left
+✅ Add a warning for players about to spend 80% of their total money before there are 11 cards left
 Add a turn timer so that idle players or not interested players time out on their turn, default it to 30s per turn, but have it configurable on game setup
 When passed or waiting for their turn, the player should be able to see what the remaining players are bidding and what the current bid is

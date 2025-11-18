@@ -12,9 +12,10 @@
 		onBid: () => void;
 		onPass: () => void;
 		isMultiplayer?: boolean;
+		remainingStatusCards?: number;
 	}
 
-	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true, auction, onBid, onPass, isMultiplayer = false }: Props = $props();
+	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true, auction, onBid, onPass, isMultiplayer = false, remainingStatusCards = 0 }: Props = $props();
 
 	// Track whether we're on mobile (for default details state)
 	let isMobile = $state(false);
@@ -59,6 +60,28 @@
 	});
 	const newTotalBid = $derived(playerCurrentBid + totalSelected);
 	const canBid = $derived(newTotalBid > currentBid);
+
+	// Warning for spending too much too early
+	const STARTING_MONEY = 106000; // Sum of all money cards
+	const WARNING_THRESHOLD = 0.8; // 80%
+	const CARDS_THRESHOLD = 11; // More than 11 cards left
+	
+	const shouldShowMoneyWarning = $derived.by(() => {
+		// Only show warning if there are still more than 11 cards left in the deck
+		if (remainingStatusCards <= CARDS_THRESHOLD) return false;
+		
+		// Calculate total money that would be spent (including current bid)
+		const totalSpent = player.getCurrentBidAmount() + totalSelected;
+		
+		// Show warning if player is about to spend 80% or more of their starting money
+		return totalSpent >= STARTING_MONEY * WARNING_THRESHOLD;
+	});
+	
+	const moneyWarningText = $derived.by(() => {
+		const totalSpent = player.getCurrentBidAmount() + totalSelected;
+		const percentageSpent = Math.round((totalSpent / STARTING_MONEY) * 100);
+		return `⚠️ Warning: You're about to spend ${percentageSpent}% of your starting money with ${remainingStatusCards} cards still remaining!`;
+	});
 </script>
 
 <article>
@@ -156,6 +179,11 @@
 			{#if !canBid && totalSelected > 0}
 				<div class="warning-text">
 					⚠️ Your new total ({newTotalBid.toLocaleString()}) must be higher than {currentBid.toLocaleString()}
+				</div>
+			{/if}
+			{#if shouldShowMoneyWarning && totalSelected > 0}
+				<div class="warning-text money-warning">
+					{moneyWarningText}
 				</div>
 			{/if}
 		{/if}
@@ -303,10 +331,6 @@
 		}
 	}
 
-	footer small {
-		font-size: clamp(0.75rem, 1.8vw, 0.875rem);
-	}
-
 	.not-your-turn {
 		text-align: center;
 		padding: 1rem;
@@ -331,6 +355,12 @@
 		border: 1px solid var(--pico-del-color);
 		margin-top: 0.5rem;
 		text-align: center;
+	}
+
+	.warning-text.money-warning {
+		color: #ff8c00;
+		background-color: rgba(255, 140, 0, 0.1);
+		border-color: #ff8c00;
 	}
 
 	@media (min-width: 768px) {
