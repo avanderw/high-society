@@ -579,6 +579,9 @@
 					<Target size={24} strokeWidth={2.5} />
 					High Society
 				</h1>
+				{#if store.localPlayer}
+					<p class="player-name-subtitle">{store.localPlayer.name}</p>
+				{/if}
 			</div>
 			
 			<!-- Turn Timer in Header -->
@@ -672,6 +675,7 @@
 						isMultiplayer={roomId !== ''}
 						remainingStatusCards={store.remainingStatusCards}
 						updateKey={store.updateCounter}
+						currentPlayerName={store.currentPlayer?.name ?? ''}
 					/>
 				</div>
 			{/if}
@@ -690,11 +694,6 @@
 		
 		<!-- Mobile Tab Navigation (Bottom) -->
 		{#if store.currentPhase !== GamePhase.SETUP && store.currentPhase !== GamePhase.FINISHED && store.currentPhase !== GamePhase.SCORING}
-			{#if store.localPlayer}
-				<div class="player-name-section">
-					<h2>{store.localPlayer.name}</h2>
-				</div>
-			{/if}
 			<nav class="mobile-tabs-bottom">
 				<button
 					class="tab-button"
@@ -831,6 +830,14 @@
 		color: var(--pico-primary);
 	}
 
+	.player-name-subtitle {
+		margin: 0;
+		font-size: clamp(0.85rem, 2.5vw, 1rem);
+		color: var(--pico-muted-color);
+		font-weight: 500;
+		margin-top: 0.25rem;
+	}
+
 	.header-timer {
 		flex-shrink: 0;
 	}
@@ -911,29 +918,6 @@
 		font-size: clamp(1rem, 3vw, 1.2rem);
 		color: var(--pico-ins-color);
 		letter-spacing: 0.01em;
-	}
-
-	/* Player Name Section */
-	.player-name-section {
-		display: none;
-		text-align: center;
-		padding: 0.75rem;
-		margin-bottom: 0.5rem;
-		border-bottom: 2px solid var(--pico-muted-border-color);
-	}
-
-	.player-name-section h2 {
-		margin: 0;
-		color: var(--pico-primary);
-		font-size: clamp(1.25rem, 3vw, 1.5rem);
-		font-weight: 700;
-	}
-
-	/* Show player name section on mobile only */
-	@media (max-width: 767px) {
-		.player-name-section {
-			display: block;
-		}
 	}
 
 	/* Mobile Tabs at Bottom */

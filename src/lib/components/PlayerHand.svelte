@@ -14,9 +14,10 @@
 		onPass: () => void;
 		isMultiplayer?: boolean;
 		remainingStatusCards?: number;
+		currentPlayerName?: string;
 	}
 
-	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true, auction, onBid, onPass, isMultiplayer = false, remainingStatusCards = 0 }: Props = $props();
+	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true, auction, onBid, onPass, isMultiplayer = false, remainingStatusCards = 0, currentPlayerName = '' }: Props = $props();
 
 	function handleCardToggle(cardId: string) {
 		vibrate(HapticPattern.SELECTION);
@@ -157,7 +158,7 @@
 	<footer>
 		{#if isMultiplayer && !isMyTurn}
 			<div class="not-your-turn">
-				<p>⏳ Waiting for your turn...</p>
+				<p>⏳ Waiting for {currentPlayerName}...</p>
 			</div>
 		{:else}
 			<div class="bid-info">
