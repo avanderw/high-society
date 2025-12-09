@@ -4,9 +4,10 @@
 	interface Props {
 		player: Player;
 		onDiscard: (cardId: string) => void;
+		onClose?: () => void;
 	}
 
-	let { player, onDiscard }: Props = $props();
+	let { player, onDiscard, onClose }: Props = $props();
 
 	// Sort luxury cards by value (ascending)
 	const luxuryCards = $derived(

@@ -5,9 +5,11 @@
 
 	interface Props {
 		onClose: () => void;
+		turnTimerSeconds?: number;
+		onTurnTimerChange?: (seconds: number) => void;
 	}
 
-	let { onClose }: Props = $props();
+	let { onClose, turnTimerSeconds = 45, onTurnTimerChange }: Props = $props();
 
 	let soundEnabled = $state(isSoundEnabled());
 	let soundVolume = $state(getSoundVolume());
@@ -27,6 +29,14 @@
 	function handleHapticToggle() {
 		hapticEnabled = !hapticEnabled;
 		setHapticEnabled(hapticEnabled);
+	}
+
+	function handleTurnTimerChange(e: Event) {
+		const target = e.target as HTMLInputElement;
+		const value = parseInt(target.value, 10);
+		if (Number.isFinite(value) && onTurnTimerChange) {
+			onTurnTimerChange(value);
+		}
 	}
 
 	function handleBackdropClick(e: MouseEvent) {
@@ -61,6 +71,7 @@
 							onchange={handleSoundToggle}
 						/>
 					</div>
+
 					{#if soundEnabled}
 						<div class="setting-control">
 							<label for="volume-slider">Volume</label>
@@ -77,6 +88,27 @@
 						</div>
 					{/if}
 				</div>
+
+				{#if onTurnTimerChange}
+					<div class="setting-group">
+						<div class="setting-header">
+							<label for="turn-timer-slider">Turn Timer (seconds)</label>
+							<strong>{turnTimerSeconds}</strong>
+						</div>
+						<div class="setting-control">
+							<input
+								id="turn-timer-slider"
+								type="range"
+								min="15"
+								max="90"
+								step="5"
+								value={turnTimerSeconds}
+								oninput={handleTurnTimerChange}
+							/>
+							<small>Adjust turn time for multiplayer games</small>
+						</div>
+					</div>
+				{/if}
 
 				{#if isHapticSupported()}
 					<div class="setting-group">

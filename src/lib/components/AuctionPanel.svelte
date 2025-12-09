@@ -165,9 +165,10 @@
 		font-size: clamp(0.8rem, 2.2vw, 1rem);
 		font-weight: 600;
 		padding: 0.35rem;
-		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(0, 255, 0, 0.05) 100%);
+		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(255, 215, 0, 0.08) 100%);
 		border-radius: var(--pico-border-radius);
 		border: 2px solid var(--pico-ins-color);
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 	}
 
 	@media (min-width: 768px) {
@@ -319,13 +320,13 @@
 	}
 
 	.current-bid {
-		color: var(--pico-primary);
-		font-weight: 600;
+		color: var(--pico-ins-color);
+		font-weight: 700;
 		font-size: clamp(0.8rem, 2vw, 1rem);
 		padding: 0.1rem 0.3rem;
 		border-radius: var(--pico-border-radius);
-		background: var(--pico-card-background-color);
-		border: 1px solid var(--pico-primary);
+		background: linear-gradient(135deg, rgba(255, 215, 0, 0.08) 0%, var(--pico-card-background-color) 100%);
+		border: 1px solid var(--pico-ins-color);
 	}
 
 	@media (min-width: 768px) {
@@ -416,8 +417,9 @@
 	.player-money {
 		display: block;
 		font-size: clamp(0.65rem, 1.8vw, 0.875rem);
-		color: var(--pico-muted-color);
+		color: var(--pico-ins-color);
 		margin-top: 0.3rem;
+		font-weight: 700;
 	}
 
 	@media (min-width: 768px) {

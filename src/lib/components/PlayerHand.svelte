@@ -437,7 +437,7 @@
 	}
 
 	.bid-row.total {
-		border-top: 2px solid var(--pico-primary);
+		border-top: 2px solid var(--pico-ins-color);
 		margin-top: 0.3rem;
 		padding-top: 0.3rem;
 		font-weight: bold;
@@ -450,6 +450,7 @@
 	.bid-value {
 		font-weight: bold;
 		font-size: clamp(1rem, 2.5vw, 1.1rem);
+		color: var(--pico-ins-color);
 	}
 
 	.grid {

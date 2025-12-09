@@ -85,6 +85,17 @@
 	const connectedPlayerIds = $derived.by(() => {
 		return new Set(lobbyPlayers.map(p => p.playerId));
 	});
+
+	// Banner values need explicit derived numbers so host UI updates when auction mutates
+	const bannerHighBid = $derived.by(() => {
+		const _ = store.updateCounter;
+		return store.currentAuction?.getCurrentHighestBid() ?? 0;
+	});
+
+	const bannerLocalBid = $derived.by(() => {
+		const _ = store.updateCounter;
+		return store.localPlayer?.getCurrentBidAmount() ?? 0;
+	});
 	
 	// Helper to show toast messages
 	function showToastMessage(message: string, type: 'error' | 'warning' | 'info' | 'success' = 'error') {
@@ -603,6 +614,19 @@
 				</button>
 			</div>
 		</header>
+
+		{#if store.currentAuction && store.localPlayer}
+			<section class="auction-info-banner">
+				<div class="money-chip">
+					<span class="money-chip-label">High Bid</span>
+					<span class="money-amount">{bannerHighBid.toLocaleString()}F</span>
+				</div>
+				<div class="money-chip secondary">
+					<span class="money-chip-label">Your Bid</span>
+					<span class="money-amount">{bannerLocalBid.toLocaleString()}F</span>
+				</div>
+			</section>
+		{/if}
 		
 		<!-- Game Grid Layout -->
 		<div class="game-grid">
@@ -730,7 +754,7 @@
 	<SettingsModal
 		onClose={() => showSettings = false}
 		turnTimerSeconds={turnTimerSeconds}
-		onTurnTimerChange={(val) => turnTimerSeconds = val}
+		onTurnTimerChange={(val: number) => turnTimerSeconds = val}
 	/>
 {/if}
 
@@ -842,6 +866,46 @@
 
 	.icon-button:hover {
 		background-color: var(--pico-secondary-hover);
+	}
+
+	.auction-info-banner {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		align-items: stretch;
+		margin: 0.25rem 0 0.75rem;
+	}
+
+	.money-chip {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.45rem 0.75rem;
+		border-radius: var(--pico-border-radius);
+		background: linear-gradient(135deg, rgba(255, 215, 0, 0.08) 0%, var(--pico-card-background-color) 100%);
+		border: 2px solid var(--pico-ins-color);
+		color: var(--pico-ins-color);
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+		min-width: 150px;
+		flex: 1 1 160px;
+	}
+
+	.money-chip.secondary {
+		border-style: dashed;
+		opacity: 0.9;
+	}
+
+	.money-chip-label {
+		font-size: 0.85rem;
+		color: var(--pico-muted-color);
+		font-weight: 600;
+	}
+
+	.money-amount {
+		font-weight: 800;
+		font-size: clamp(1rem, 3vw, 1.2rem);
+		color: var(--pico-ins-color);
+		letter-spacing: 0.01em;
 	}
 
 	/* Mobile Tabs at Bottom */
