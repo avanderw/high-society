@@ -3,15 +3,17 @@
 	import { GameEventType, type GameEvent } from '$lib/multiplayer/events';
 	import { normalizeRoomCode, isValidRoomCode } from '$lib/multiplayer/wordlist';
 	import { logger } from '$lib/utils/logger';
+	import LoadingSpinner from './LoadingSpinner.svelte';
 	
 	const ctx = 'MultiplayerSetup';
 	
 	type Props = {
 		onRoomReady: (roomId: string, playerId: string, playerName: string, isHost: boolean, players: Array<{ playerId: string; playerName: string }>, turnTimerSeconds: number) => void;
 		initialRoomCode?: string;
+		onModeChange?: (mode: 'menu' | 'create' | 'join') => void;
 	};
 	
-	let { onRoomReady, initialRoomCode = '' }: Props = $props();
+	let { onRoomReady, initialRoomCode = '', onModeChange }: Props = $props();
 	
 	let mode = $state<'menu' | 'create' | 'join'>(initialRoomCode ? 'join' : 'menu');
 	let playerName = $state('');
@@ -112,6 +114,7 @@
 			// Don't set connectedPlayers manually - let the room:joined event handle it
 			
 			mode = 'create';
+			onModeChange?.(mode);
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to create room';
 		} finally {
@@ -222,6 +225,7 @@
 		
 		// Reset state
 		mode = 'menu';
+		onModeChange?.(mode);
 		currentRoomId = '';
 		currentPlayerId = '';
 		isHost = false;
@@ -286,20 +290,30 @@
 		</div>
 	{/if}
 
+	{#if isConnecting}
+		<div class="connecting-overlay">
+			<LoadingSpinner message={mode === 'create' ? 'Creating room...' : 'Joining room...'} />
+		</div>
+	{/if}
+
 	{#if mode === 'menu'}
 		<div class="menu-container">
 			<p>Choose how to play:</p>
 			
 			<div class="button-group">
-				<button 
-					onclick={() => mode = 'create'} 
-					disabled={isConnecting}
-				>
-					Create Room
-				</button>
-				
-				<button 
-					onclick={() => mode = 'join'}
+			<button 
+				onclick={() => {
+					mode = 'create';
+					onModeChange?.(mode);
+				}} 
+				disabled={isConnecting}
+			>
+				Create Room
+			</button>				<button 
+					onclick={() => {
+						mode = 'join';
+						onModeChange?.(mode);
+					}}
 					class="secondary"
 					disabled={isConnecting}
 				>
@@ -339,7 +353,10 @@
 				</button>
 				
 				<button 
-					onclick={() => mode = 'menu'}
+					onclick={() => {
+						mode = 'menu';
+						onModeChange?.(mode);
+					}}
 					class="secondary"
 					disabled={isConnecting}
 				>
@@ -463,7 +480,10 @@
 				</button>
 				
 				<button 
-					onclick={() => mode = 'menu'}
+					onclick={() => {
+						mode = 'menu';
+						onModeChange?.(mode);
+					}}
 					class="secondary"
 					disabled={isConnecting}
 				>
@@ -719,5 +739,18 @@
 
 	.room-info h3 {
 		margin-bottom: 0.5rem;
+	}
+
+	.connecting-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background-color: rgba(0, 0, 0, 0.7);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
 	}
 </style>

@@ -20,15 +20,6 @@
 </script>
 
 <article>
-	<header>
-		<h3>Current Auction</h3>
-		{#if phase === GamePhase.DISGRACE_AUCTION}
-			<small><mark>Disgrace! Bid to avoid</mark></small>
-		{:else}
-			<small>Bid to win this item</small>
-		{/if}
-	</header>
-
 	{#if currentCard}
 		<section class="card-display">
 			<div class="status-card {phase === GamePhase.DISGRACE_AUCTION ? 'disgrace' : 'luxury'}">
@@ -36,6 +27,11 @@
 				<div class="card-value">
 					{currentCard.getDisplayValue()}
 				</div>
+				{#if phase === GamePhase.DISGRACE_AUCTION}
+					<div class="card-instruction disgrace-instruction"><mark>Bid to avoid</mark></div>
+				{:else}
+					<div class="card-instruction">Bid to win</div>
+				{/if}
 			</div>
 		</section>
 	{/if}
@@ -52,31 +48,54 @@
 		margin-bottom: 0;
 	}
 
-	header {
-		padding-bottom: 0.5rem;
+	footer {
+		padding-top: 0.3rem;
+		padding-bottom: 0.3rem;
 	}
 
 	@media (min-width: 768px) {
-		header {
-			padding-bottom: inherit;
+		footer {
+			padding-top: 0.5rem;
+			padding-bottom: 0.5rem;
 		}
+	}
+
+	.card-instruction {
+		margin-top: 0.5rem;
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		font-weight: 600;
+		opacity: 0.8;
+		letter-spacing: 0.5px;
+	}
+
+	@media (min-width: 768px) {
+		.card-instruction {
+			font-size: 0.85rem;
+			margin-top: 0.75rem;
+		}
+	}
+
+	.card-instruction mark {
+		padding: 0.2rem 0.4rem;
+		font-size: inherit;
 	}
 
 	.card-display {
 		display: flex;
 		justify-content: center;
-		padding: 0.35rem 0;
+		padding: 0.25rem 0;
 	}
 
 	@media (min-width: 768px) {
 		.card-display {
-			padding: 2rem 0;
+			padding: 1.5rem 0;
 		}
 	}
 
 	.status-card {
-		width: min(160px, 80vw);
-		padding: 0.6rem;
+		width: min(150px, 75vw);
+		padding: 0.5rem;
 		border: 3px solid var(--pico-primary);
 		border-radius: var(--pico-border-radius);
 		text-align: center;
@@ -90,7 +109,7 @@
 	@media (min-width: 768px) {
 		.status-card {
 			width: 200px;
-			padding: 2rem;
+			padding: 1.5rem;
 			box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
 		}
 	}

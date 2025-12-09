@@ -1,4 +1,7 @@
-Randomise turn order on game start
-Create compact grid layout for mobile
-Optimize player hand display
-Implement tabs for card, players, my hand.
+The high bid is only on the players tab, but needs to be in an area that is common to both game and players for mobile visibility.
+Heading for the player name needs fixing, total for the money cards can be in a better place as well.
+When waiting for a player to discard a card the other players can get a better view of what they are waiting for, currently it is blank.
+The players tab can have a border colour to highlight who's turn is active. 
+Add a setting to switch to players table when waiting for your turn and back when it is your turn, default to yes.
+Favicon needs to be updated.
+Space needs to be better utilised on desktop because it does not fit on one screen.

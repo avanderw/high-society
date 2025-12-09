@@ -33,6 +33,25 @@
 		onPass();
 	}
 
+	type MoneyColorTier = 'light' | 'normal' | 'dark';
+
+	const MONEY_COLOR_PALETTE: Record<MoneyColorTier, { fill: string; stroke: string; text: string }> = {
+		light: { fill: '#f7eed3', stroke: '#d8bf78', text: '#2f2200' },
+		normal: { fill: '#f3d36a', stroke: '#c99b1f', text: '#2c1f00' },
+		dark: { fill: '#d8a328', stroke: '#9f6b00', text: '#221500' }
+	};
+
+	function getMoneyColorTier(value: number): MoneyColorTier {
+		if (value >= 15000) return 'dark';
+		if (value <= 4000) return 'light';
+		return 'normal';
+	}
+
+	function getMoneyCardStyle(value: number): string {
+		const colors = MONEY_COLOR_PALETTE[getMoneyColorTier(value)];
+		return `--card-color:${colors.stroke};--card-fill:${colors.fill};--card-text:${colors.text};`;
+	}
+
 	// Track whether we're on mobile (for default details state)
 	let isMobile = $state(false);
 	
@@ -102,13 +121,13 @@
 
 <article>
 	<header>
-		<h3>Your Money ({player.name})</h3>
-		<small>
-			{player.getTotalRemainingMoney().toLocaleString()}F
+		<div class="compact-header">
+			<strong>{player.name}</strong>
+			<span class="money-total">{player.getTotalRemainingMoney().toLocaleString()}F</span>
 			{#if playedMoney.length > 0}
-				• Bid: {player.getCurrentBidAmount().toLocaleString()}F
+				<span class="bid-amount">Bid: {player.getCurrentBidAmount().toLocaleString()}F</span>
 			{/if}
-		</small>
+		</div>
 	</header>
 
 	<section>
@@ -117,7 +136,7 @@
 				<button
 					class="money-card {selectedCards?.includes(card.id) ? 'selected' : ''}"
 					onclick={() => handleCardToggle(card.id)}
-					style="--card-color: {player.color};"
+					style={getMoneyCardStyle(card.value)}
 					disabled={!isMyTurn}
 				>
 					<div class="card-content">
@@ -133,7 +152,7 @@
 				<summary>Currently Bid</summary>
 				<div class="money-cards">
 					{#each playedMoney as card}
-						<div class="money-card bid" style="--card-color: {player.color};">
+						<div class="money-card bid" style={getMoneyCardStyle(card.value)}>
 							<div class="card-content">
 								<div class="card-value">{card.getDisplayValue()}</div>
 								<small>{card.value.toLocaleString()}</small>
@@ -179,17 +198,17 @@
 			
 			<div class="grid">
 				<button 
+					onclick={handlePass}
+					class="secondary"
+				>
+					Pass
+				</button>
+				<button 
 					onclick={handleBid} 
 					disabled={!canBid || totalSelected === 0}
 					class="primary"
 				>
 					Place Bid ({totalSelected.toLocaleString()})
-				</button>
-				<button 
-					onclick={handlePass}
-					class="secondary"
-				>
-					Pass
 				</button>
 			</div>
 			{#if !canBid && totalSelected > 0}
@@ -207,18 +226,87 @@
 </article>
 
 <style>
+	article {
+		padding: 0.5rem;
+	}
+
+	@media (min-width: 768px) {
+		article {
+			padding: 1rem;
+		}
+	}
+
+	header {
+		padding: 0.3rem 0;
+	}
+
+	@media (min-width: 768px) {
+		header {
+			padding: 0.5rem 0;
+		}
+	}
+
+	section {
+		padding: 0.25rem 0;
+	}
+
+	@media (min-width: 768px) {
+		section {
+			padding: 0.5rem 0;
+		}
+	}
+
+	footer {
+		padding-top: 0.25rem;
+	}
+
+	@media (min-width: 768px) {
+		footer {
+			padding-top: 0.5rem;
+		}
+	}
+
+	.compact-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		font-size: 0.9rem;
+	}
+
+	@media (min-width: 768px) {
+		.compact-header {
+			font-size: 1rem;
+			gap: 0.75rem;
+		}
+	}
+
+	.compact-header strong {
+		color: var(--pico-primary);
+	}
+
+	.money-total {
+		font-weight: 600;
+		color: var(--pico-ins-color);
+	}
+
+	.bid-amount {
+		font-size: 0.85rem;
+		opacity: 0.9;
+	}
+
 	.money-cards {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.35rem;
-		margin: 0.5rem 0;
-		padding-bottom: 0.25rem;
+		margin: 0.4rem 0;
+		padding-bottom: 0.15rem;
 	}
 
 	@media (min-width: 768px) {
 		.money-cards {
 			gap: 0.5rem;
-			margin: 1rem 0;
+			margin: 0.75rem 0;
 		}
 	}
 
@@ -228,9 +316,10 @@
 		height: 90px;
 		min-height: 90px;
 		padding: 0.25rem;
-		border: 2px solid var(--pico-muted-border-color);
+		border: 2px solid var(--card-color, var(--pico-muted-border-color));
 		border-radius: var(--pico-border-radius);
-		background: var(--pico-card-background-color);
+		background: linear-gradient(155deg, var(--card-fill, var(--pico-card-background-color)) 0%, var(--pico-card-background-color) 70%);
+		color: var(--card-text, inherit);
 		cursor: pointer;
 		transition: all 0.2s;
 		display: flex;
@@ -281,7 +370,7 @@
 	.money-card.selected {
 		border-color: var(--card-color);
 		border-width: 3px;
-		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, var(--card-color) 10%, var(--pico-card-background-color) 100%);
+		background: linear-gradient(135deg, var(--card-fill, var(--card-color)) 0%, var(--pico-card-background-color) 100%);
 		box-shadow: 0 0 12px var(--card-color);
 		animation: cardSelect 0.2s ease-out;
 	}
@@ -292,9 +381,10 @@
 	}
 
 	.money-card.bid {
-		opacity: 0.6;
+		opacity: 0.65;
 		cursor: default;
 		border-color: var(--card-color);
+		background: linear-gradient(160deg, var(--card-fill, var(--pico-card-background-color)) 0%, var(--pico-card-background-color) 85%);
 	}
 
 	.card-content {
@@ -320,14 +410,14 @@
 	.bid-info {
 		background-color: var(--pico-card-background-color);
 		border-radius: var(--pico-border-radius);
-		padding: 0.5rem;
-		margin-bottom: 0.5rem;
+		padding: 0.4rem 0.5rem;
+		margin-bottom: 0.4rem;
 	}
 
 	@media (min-width: 768px) {
 		.bid-info {
-			padding: 0.75rem;
-			margin-bottom: 1rem;
+			padding: 0.6rem 0.75rem;
+			margin-bottom: 0.75rem;
 		}
 	}
 
@@ -335,20 +425,21 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 0.15rem 0;
-		font-size: clamp(0.875rem, 2vw, 1rem);
+		padding: 0.1rem 0;
+		font-size: clamp(0.85rem, 2vw, 0.95rem);
 	}
 
 	@media (min-width: 768px) {
 		.bid-row {
-			padding: 0.25rem 0;
+			padding: 0.2rem 0;
+			font-size: 1rem;
 		}
 	}
 
 	.bid-row.total {
 		border-top: 2px solid var(--pico-primary);
-		margin-top: 0.5rem;
-		padding-top: 0.5rem;
+		margin-top: 0.3rem;
+		padding-top: 0.3rem;
 		font-weight: bold;
 	}
 
@@ -363,20 +454,26 @@
 
 	.grid {
 		display: grid;
-		grid-template-columns: 1fr;
+		grid-template-columns: 1fr 1fr;
 		gap: 0.35rem;
 	}
 
-	@media (min-width: 480px) {
+	@media (min-width: 768px) {
 		.grid {
-			grid-template-columns: 1fr 1fr;
 			gap: 0.5rem;
 		}
 	}
 
 	button {
-		font-size: clamp(0.875rem, 2vw, 1rem);
-		padding: 0.4rem 0.6rem;
+		font-size: clamp(0.85rem, 2vw, 0.95rem);
+		padding: 0.5rem 0.5rem;
+	}
+
+	@media (min-width: 768px) {
+		button {
+			font-size: 1rem;
+			padding: 0.6rem 0.8rem;
+		}
 	}
 
 	@media (min-width: 768px) {

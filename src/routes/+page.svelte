@@ -45,6 +45,7 @@
 	let lobbyPlayers = $state<Array<{ playerId: string; playerName: string }>>([]);
 	let turnTimerSeconds = $state(45);
 	let turnTimeRemaining = $state(0); // Seconds remaining in current turn
+	let showGameIntro = $state(true); // Show intro until user creates/joins a room
 	
 	// UI Modal state
 	let showLuxuryDiscard = $state(false);
@@ -109,6 +110,7 @@
 		lobbyPlayers = players;
 		inLobby = true;
 		turnTimerSeconds = turnTimerSecondsParam;
+		showGameIntro = false; // Hide intro once room is created/joined
 		
 		hostPlayerId = players[0]?.playerId ?? '';
 		
@@ -520,7 +522,13 @@
 
 {#if inLobby}
 	<div class="multiplayer-lobby">
+		<MultiplayerSetup
+			onRoomReady={handleMultiplayerRoomReady}
+			initialRoomCode={$page.url.searchParams.get('room') || ''}
+			onModeChange={(mode) => showGameIntro = mode === 'menu'}
+		/>
 		<!-- Game Introduction -->
+		{#if showGameIntro}
 		<article class="game-intro">
 			<header>
 				<h2>Welcome to High Society</h2>
@@ -548,11 +556,8 @@
 				</div>
 			</section>
 		</article>
+		{/if}
 		
-		<MultiplayerSetup
-			onRoomReady={handleMultiplayerRoomReady}
-			initialRoomCode={$page.url.searchParams.get('room') || ''}
-		/>
 	</div>
 {:else}
 	<main class="game-container">
@@ -948,7 +953,7 @@
 
 	.game-grid {
 		display: grid;
-		gap: 0.5rem;
+		gap: 0.35rem;
 		grid-template-columns: 1fr;
 		grid-template-areas:
 			"card"
@@ -961,7 +966,7 @@
 
 	@media (min-width: 768px) {
 		.game-grid {
-			gap: 1rem;
+			gap: 0.75rem;
 			grid-template-columns: 1fr 1fr;
 			grid-template-areas:
 				"card players"

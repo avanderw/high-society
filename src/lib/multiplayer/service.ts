@@ -108,16 +108,35 @@ export class MultiplayerService {
 	connect(): Promise<void> {
 		return new Promise((resolve, reject) => {
 			try {
+				// Don't reconnect on initial connection - only after successful first connect
 				this.socket = io(this.serverUrl, {
 					transports: ['websocket'],
-					reconnection: true,
-					reconnectionDelay: 1000,
-					reconnectionAttempts: 5
+					reconnection: false, // Disable auto-reconnect for initial connection
+					timeout: 5000 // 5 second timeout for initial connection
 				});
+
+				let hasResolved = false;
+
+				const cleanup = () => {
+					if (this.socket && !hasResolved) {
+						this.socket.off('connect');
+						this.socket.off('connect_error');
+					}
+				};
 
 				this.socket.on('connect', () => {
 					logger.info(ctx, 'Connected to server');
 					this.connected = true;
+					hasResolved = true;
+					cleanup();
+					
+					// Now enable reconnection for subsequent disconnects
+					if (this.socket) {
+						this.socket.io.opts.reconnection = true;
+						this.socket.io.opts.reconnectionDelay = 1000;
+						this.socket.io.opts.reconnectionAttempts = 5;
+					}
+					
 					resolve();
 				});
 
@@ -126,10 +145,19 @@ export class MultiplayerService {
 					this.connected = false;
 				});
 
-			this.socket.on('connect_error', (error: Error) => {
-				logger.error(ctx, 'Connection error', error);
-				reject(error);
-			});				// Listen for all game events
+				this.socket.on('connect_error', (error: Error) => {
+					logger.error(ctx, 'Connection error', error);
+					if (!hasResolved) {
+						hasResolved = true;
+						cleanup();
+						// Clean up the socket completely on initial connection failure
+						if (this.socket) {
+							this.socket.disconnect();
+							this.socket = null;
+						}
+						reject(new Error('Unable to connect to multiplayer server. Please check that the relay server is running.'));
+					}
+				});				// Listen for all game events
 				this.socket.onAny((eventType: string, data: any) => {
 					if (eventType.startsWith('game:') || eventType.startsWith('action:') || eventType.startsWith('room:') || eventType.startsWith('state:') || eventType.startsWith('error:')) {
 						const event: GameEvent = {
