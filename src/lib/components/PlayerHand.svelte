@@ -120,16 +120,6 @@
 </script>
 
 <article>
-	<header>
-		<div class="compact-header">
-			<strong>{player.name}</strong>
-			<span class="money-total">{player.getTotalRemainingMoney().toLocaleString()}F</span>
-			{#if playedMoney.length > 0}
-				<span class="bid-amount">Bid: {player.getCurrentBidAmount().toLocaleString()}F</span>
-			{/if}
-		</div>
-	</header>
-
 	<section>
 		<div class="money-cards">
 			{#each moneyHand as card}
@@ -236,16 +226,6 @@
 		}
 	}
 
-	header {
-		padding: 0.3rem 0;
-	}
-
-	@media (min-width: 768px) {
-		header {
-			padding: 0.5rem 0;
-		}
-	}
-
 	section {
 		padding: 0.25rem 0;
 	}
@@ -264,35 +244,6 @@
 		footer {
 			padding-top: 0.5rem;
 		}
-	}
-
-	.compact-header {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-		font-size: 0.9rem;
-	}
-
-	@media (min-width: 768px) {
-		.compact-header {
-			font-size: 1rem;
-			gap: 0.75rem;
-		}
-	}
-
-	.compact-header strong {
-		color: var(--pico-primary);
-	}
-
-	.money-total {
-		font-weight: 600;
-		color: var(--pico-ins-color);
-	}
-
-	.bid-amount {
-		font-size: 0.85rem;
-		opacity: 0.9;
 	}
 
 	.money-cards {

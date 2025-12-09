@@ -690,6 +690,11 @@
 		
 		<!-- Mobile Tab Navigation (Bottom) -->
 		{#if store.currentPhase !== GamePhase.SETUP && store.currentPhase !== GamePhase.FINISHED && store.currentPhase !== GamePhase.SCORING}
+			{#if store.localPlayer}
+				<div class="player-name-section">
+					<h2>{store.localPlayer.name}</h2>
+				</div>
+			{/if}
 			<nav class="mobile-tabs-bottom">
 				<button
 					class="tab-button"
@@ -908,6 +913,29 @@
 		letter-spacing: 0.01em;
 	}
 
+	/* Player Name Section */
+	.player-name-section {
+		display: none;
+		text-align: center;
+		padding: 0.75rem;
+		margin-bottom: 0.5rem;
+		border-bottom: 2px solid var(--pico-muted-border-color);
+	}
+
+	.player-name-section h2 {
+		margin: 0;
+		color: var(--pico-primary);
+		font-size: clamp(1.25rem, 3vw, 1.5rem);
+		font-weight: 700;
+	}
+
+	/* Show player name section on mobile only */
+	@media (max-width: 767px) {
+		.player-name-section {
+			display: block;
+		}
+	}
+
 	/* Mobile Tabs at Bottom */
 	.mobile-tabs-bottom {
 		position: fixed;
@@ -996,10 +1024,10 @@
 		}
 	}
 
-	/* Add bottom padding to game container on mobile to account for fixed tabs */
+	/* Add bottom padding to game container on mobile to account for fixed tabs and player name section */
 	@media (max-width: 767px) {
 		.game-container {
-			padding-bottom: 4rem;
+			padding-bottom: 5rem;
 		}
 	}
 
