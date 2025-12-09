@@ -523,6 +523,28 @@
 		inLobby = true;
 		// Clients will need to disconnect and rejoin
 	}
+	
+	// === PREVENT ACCIDENTAL REFRESH ===
+	
+	// Warn user before leaving/refreshing during an active game
+	function handleBeforeUnload(event: BeforeUnloadEvent) {
+		// Only warn if game is active (not in lobby, not finished)
+		if (!inLobby && store.currentPhase !== GamePhase.FINISHED) {
+			event.preventDefault();
+			// Modern browsers ignore custom messages, but we still need to set returnValue
+			event.returnValue = '';
+			return '';
+		}
+	}
+	
+	// Add event listener when component mounts
+	$effect(() => {
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		
+		return () => {
+			window.removeEventListener('beforeunload', handleBeforeUnload);
+		};
+	});
 </script>
 
 <svelte:head>
