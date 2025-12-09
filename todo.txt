@@ -1,4 +1,4 @@
-Show the progress to tend game tracker as 4 progress bars
+Indicate if you have passed for the round
 Improve the auction complete popup and the sibling disgrace one to be more condense
 Provide a notification or pause state for when a player drops
 Give an alert or catch the event for a refresh to provide a warning

@@ -139,21 +139,6 @@
 			{/each}
 		</div>
 
-		{#if playedMoney.length > 0}
-			<details open={!isMobile}>
-				<summary>Currently Bid</summary>
-				<div class="money-cards">
-					{#each playedMoney as card}
-						<div class="money-card bid" style={getMoneyCardStyle(card.value)}>
-							<div class="card-content">
-								<div class="card-value">{card.getDisplayValue()}</div>
-								<small>{card.value.toLocaleString()}</small>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</details>
-		{/if}
 	</section>
 
 	<footer>
@@ -166,32 +151,6 @@
 				{/if}
 			</div>
 		{:else}
-			<div class="bid-info">
-				<div class="bid-row">
-					<span class="bid-label">High Bid:</span>
-					<span class="bid-value">{currentBid.toLocaleString()}</span>
-				</div>
-				{#if playerCurrentBid > 0}
-					<div class="bid-row">
-						<span class="bid-label">Your Bid:</span>
-						<span class="bid-value">{playerCurrentBid.toLocaleString()}</span>
-					</div>
-					<div class="bid-row">
-						<span class="bid-label">Adding:</span>
-						<span class="bid-value">+{totalSelected.toLocaleString()}</span>
-					</div>
-					<div class="bid-row total">
-						<span class="bid-label">New Total:</span>
-						<span class="bid-value">{newTotalBid.toLocaleString()}</span>
-					</div>
-				{:else if totalSelected > 0}
-					<div class="bid-row">
-						<span class="bid-label">Selected:</span>
-						<span class="bid-value">{totalSelected.toLocaleString()}</span>
-					</div>
-				{/if}
-			</div>
-			
 			<div class="grid">
 				<button 
 					onclick={handlePass}
@@ -204,7 +163,7 @@
 					disabled={!canBid || totalSelected === 0}
 					class="primary"
 				>
-					Place Bid ({totalSelected.toLocaleString()})
+					Place Bid ({newTotalBid.toLocaleString()})
 				</button>
 			</div>
 			{#if !canBid && totalSelected > 0}

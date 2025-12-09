@@ -37,9 +37,15 @@
 	{/if}
 
 	<footer>
-		<small>
-			Triggers: {publicState.gameEndTriggerCount}/4 • Cards: {publicState.remainingStatusCards}
-		</small>
+		<div class="progress-bar-section compact horizontal">
+			<span class="progress-bar-label">End Game Tracker</span>
+			<span class="progress-bar-4">
+				{#each Array(4) as _, i}
+					<span class="progress-bar-segment {i < publicState.gameEndTriggerCount ? 'filled' : ''}"></span>
+				{/each}
+			</span>
+			<span class="progress-bar-cards">{publicState.remainingStatusCards} cards left</span>
+		</div>
 	</footer>
 </article>
 
@@ -93,22 +99,28 @@
 		}
 	}
 
-	.status-card {
-		width: min(150px, 75vw);
-		padding: 0.5rem;
-		border: 3px solid var(--pico-primary);
-		border-radius: var(--pico-border-radius);
-		text-align: center;
-		background: var(--pico-card-background-color);
-		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-		animation: cardReveal 0.4s ease-out;
-		position: relative;
-		overflow: hidden;
-	}
+		.status-card {
+			width: min(150px, 75vw);
+			aspect-ratio: 2.5/3.5;
+			padding: 0.5rem;
+			border: 3px solid var(--pico-primary);
+			border-radius: var(--pico-border-radius);
+			text-align: center;
+			background: var(--pico-card-background-color);
+			box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+			animation: cardReveal 0.4s ease-out;
+			position: relative;
+			overflow: hidden;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+		}
 
 	@media (min-width: 768px) {
 		.status-card {
 			width: 200px;
+			aspect-ratio: 2.5/3.5;
 			padding: 1.5rem;
 			box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
 		}
@@ -205,4 +217,45 @@
 		text-align: center;
 		font-size: clamp(0.75rem, 2vw, 0.875rem);
 	}
+
+.progress-bar-section.compact.horizontal {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	margin: 0.1rem 0 0.1rem 0;
+}
+.progress-bar-label {
+	font-size: 0.8rem;
+	color: var(--pico-muted-color);
+	font-weight: 600;
+	margin-bottom: 0;
+	text-align: center;
+	letter-spacing: 0.5px;
+}
+.progress-bar-4 {
+	display: flex;
+	gap: 0.18rem;
+	margin-bottom: 0;
+}
+.progress-bar-segment {
+	width: 18px;
+	height: 6px;
+	border-radius: 3px;
+	background: var(--pico-muted-border-color);
+	transition: background 0.3s;
+	border: 1px solid var(--pico-primary);
+}
+.progress-bar-segment.filled {
+	background: linear-gradient(90deg, var(--pico-primary) 60%, var(--pico-ins-color) 100%);
+	border-color: var(--pico-ins-color);
+}
+.progress-bar-cards {
+	font-size: 0.75rem;
+	color: var(--pico-muted-color);
+	margin-top: 0;
+	margin-left: 0.25rem;
+	font-weight: 500;
+}
 </style>
