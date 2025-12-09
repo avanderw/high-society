@@ -80,75 +80,73 @@
 
 <article>
 	<header>
-		<h3>Players</h3>
-		{#if auction && highestBid > 0}
-			<small class="highest-bid-display">
-				High: <strong>{highestBid.toLocaleString()}F</strong>
-			</small>
-		{/if}
+	   <h3>Players</h3>
 	</header>
 
-	<section>
-		{#each playerStatuses as { player, gameIndex, currentStatus, currentBid, statusCards }}
-			<details class="player-status" class:disconnected={!isPlayerConnected(gameIndex)} open={gameIndex === currentPlayerIndex}>
-				<summary>
-					<span class="player-summary">
-						<span style="color: {player.color};">●</span>
-						<strong>{player.name}</strong>
-						{#if !isPlayerConnected(gameIndex)}
-							<span class="connection-status disconnected" title="Player disconnected">
-								<WifiOff size={14} />
-							</span>
-						{:else}
-							<span class="connection-status connected" title="Player connected">
-								<Wifi size={14} />
-							</span>
-						{/if}
-						{#if gameIndex === currentPlayerIndex && turnTimeRemaining > 0}
-							<span class="turn-timer" style="color: {timerColor};">
-								<Clock size={14} />
-								{turnTimeRemaining}s
-							</span>
-						{/if}
-						<span class="status-value">{currentStatus}</span>
-						{#if !isActive(player.id)}
-							<small class="passed-badge">(Pass)</small>
-						{:else if auction && currentBid > 0}
-							<span class="current-bid" class:highest-bid={hasHighestBid(player)}>
-								{currentBid.toLocaleString()}F
-								{#if hasHighestBid(player)}
-									<small class="highest-badge">↑</small>
-								{/if}
-							</span>
-						{/if}
-						{#if player.getPendingLuxuryDiscard()}
-							<mark style="background-color: var(--pico-del-color);">Discard</mark>
-						{/if}
-					</span>
-				</summary>
+	   <section>
+		   {#each playerStatuses as { player, gameIndex, currentStatus, currentBid, statusCards }}
+			   <details class="player-status" class:disconnected={!isPlayerConnected(gameIndex)} open={gameIndex === currentPlayerIndex}>
+				   <summary>
+					   <span class="player-summary">
+						   <span style="color: {player.color};">●</span>
+						   <strong>{player.name}</strong>
+						   {#if !isPlayerConnected(gameIndex)}
+							   <span class="connection-status disconnected" title="Player disconnected">
+								   <WifiOff size={14} />
+							   </span>
+						   {:else}
+							   <span class="connection-status connected" title="Player connected">
+								   <Wifi size={14} />
+							   </span>
+						   {/if}
+						   {#if gameIndex === currentPlayerIndex && turnTimeRemaining > 0}
+							   <span class="turn-timer" style="color: {timerColor};">
+								   <Clock size={14} />
+								   {turnTimeRemaining}s
+							   </span>
+						   {/if}
+						   <span class="status-value">{currentStatus}</span>
+						   {#if !isActive(player.id)}
+							   <small class="passed-badge">(Pass)</small>
+						   {:else if auction && currentBid > 0}
+							   <span class="current-bid" class:highest-bid={hasHighestBid(player)}>
+								   {currentBid.toLocaleString()}F
+								   {#if hasHighestBid(player)}
+									   <small class="highest-badge">↑</small>
+								   {/if}
+							   </span>
+						   {/if}
+						   {#if player.getPendingLuxuryDiscard()}
+							   <mark style="background-color: var(--pico-del-color);">Discard</mark>
+						   {/if}
+					   </span>
+				   </summary>
 
-				<div class="player-details">
-					<div class="status-cards">
-						{#if statusCards.length > 0}
-							<div class="card-list">
-								{#each statusCards as card}
-									<div class="status-card-mini {card instanceof LuxuryCard ? 'luxury' : card instanceof PrestigeCard ? 'prestige' : 'disgrace'}">
-										<strong>{card.name}</strong>
-										<span>{card.getDisplayValue()}</span>
-									</div>
-								{/each}
-							</div>
-						{/if}
-					</div>
+				   <div class="player-details">
+					   <div class="status-cards">
+						   {#if statusCards.length > 0}
+							   <div class="card-list">
+								   {#each statusCards as card}
+									   <div class="status-card-mini {card instanceof LuxuryCard ? 'luxury' : card instanceof PrestigeCard ? 'prestige' : 'disgrace'}">
+										   <strong>{card.name}</strong>
+										   <span>{card.getDisplayValue()}</span>
+									   </div>
+								   {/each}
+							   </div>
+						   {/if}
+					   </div>
 
-					<small class="player-money">
-						{player.getTotalRemainingMoney().toLocaleString()}F
-						({player.getMoneyHand().length} cards)
-					</small>
-				</div>
-			</details>
-		{/each}
-	</section>
+					   <small class="player-money">
+						   {player.getTotalRemainingMoney().toLocaleString()}F
+						   ({player.getMoneyHand().length} cards)
+					   </small>
+					   {#if gameIndex === currentPlayerIndex}
+						   <span class="new-total-label">New Total: {player.getTotalRemainingMoney().toLocaleString()}F</span>
+					   {/if}
+				   </div>
+			   </details>
+		   {/each}
+	   </section>
 </article>
 
 <style>
@@ -160,26 +158,7 @@
 		gap: 0.5rem;
 	}
 
-	.highest-bid-display {
-		color: var(--pico-ins-color);
-		font-size: clamp(0.8rem, 2.2vw, 1rem);
-		font-weight: 600;
-		padding: 0.35rem;
-		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(255, 215, 0, 0.08) 100%);
-		border-radius: var(--pico-border-radius);
-		border: 2px solid var(--pico-ins-color);
-		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-	}
 
-	@media (min-width: 768px) {
-		.highest-bid-display {
-			padding: 0.5rem;
-		}
-	}
-
-	.highest-bid-display strong {
-		font-size: clamp(0.9rem, 2.5vw, 1.25rem);
-	}
 
 	section {
 		font-size: clamp(0.875rem, 2vw, 1rem);
@@ -438,4 +417,16 @@
 			padding: 0.125rem 0.25rem;
 		}
 	}
+   .new-total-label {
+	   display: inline-block;
+	   margin-top: 0.25rem;
+	   margin-left: 0.5rem;
+	   font-size: clamp(0.75rem, 2vw, 1rem);
+	   color: var(--pico-ins-color);
+	   background: var(--pico-card-background-color);
+	   border-radius: var(--pico-border-radius);
+	   padding: 0.15rem 0.4rem;
+	   font-weight: 600;
+	   box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+   }
 </style>

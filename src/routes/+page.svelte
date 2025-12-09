@@ -7,7 +7,6 @@
 	
 	import MultiplayerSetup from '$lib/components/MultiplayerSetup.svelte';
 	import GameBoard from '$lib/components/GameBoard.svelte';
-	import AuctionPanel from '$lib/components/AuctionPanel.svelte';
 	import PlayerHand from '$lib/components/PlayerHand.svelte';
 	import StatusDisplay from '$lib/components/StatusDisplay.svelte';
 	import ScoreBoard from '$lib/components/ScoreBoard.svelte';
@@ -69,17 +68,6 @@
 	let toastMessage = $state('');
 	let toastType = $state<'error' | 'warning' | 'info' | 'success'>('error');
 	let showToast = $state(false);
-	
-	// Mobile tabs state
-	type MobileTab = 'game' | 'players';
-	let activeMobileTab = $state<MobileTab>('game');
-	
-	// Auto-switch to game tab when it's the player's turn (mobile only)
-	$effect(() => {
-		if (store.isMyTurn && window.innerWidth < 768) {
-			activeMobileTab = 'game';
-		}
-	});
 	
 	// Derived connected players
 	const connectedPlayerIds = $derived.by(() => {
@@ -634,36 +622,19 @@
 		<!-- Game Grid Layout -->
 		<div class="game-grid">
 			
-			<!-- Current Card Display -->
-			{#if store.gameState && store.currentCard}
-				<div class="grid-card-area" class:tab-hidden={activeMobileTab !== 'game'}>
-					<GameBoard
-						gameState={store.gameState}
-						updateKey={store.updateCounter}
-					/>
-				</div>
-			{/if}
-			
-			<!-- Auction Panel (shows player status during active gameplay) -->
-			{#if store.currentAuction && store.currentPlayer && store.gameState}
-				<div class="grid-players-area" class:tab-hidden={activeMobileTab !== 'players'}>
-					<AuctionPanel
-						auction={store.currentAuction}
-						currentPlayer={store.currentPlayer}
-						currentPlayerIndex={store.gameState.getCurrentPlayerIndex()}
-						allPlayers={store.gameState.getPlayers()}
-						updateKey={store.updateCounter}
-						connectedPlayerIds={connectedPlayerIds}
-						playerIdToGameIndex={new Map(lobbyPlayers.map((p, idx) => [p.playerId, idx]))}
-						turnTimeRemaining={turnTimeRemaining}
-						turnTimerSeconds={turnTimerSeconds}
-					/>
-				</div>
-			{/if}
-			
-			<!-- Player Hand -->
-			{#if store.localPlayer && store.currentAuction}
-				<div class="grid-hand-area" class:tab-hidden={activeMobileTab !== 'game'}>
+		<!-- Current Card Display -->
+		{#if store.gameState && store.currentCard}
+			<div class="grid-card-area">
+				<GameBoard
+					gameState={store.gameState}
+					updateKey={store.updateCounter}
+				/>
+			</div>
+		{/if}
+		
+		<!-- Player Hand -->
+		{#if store.localPlayer && store.currentAuction}
+			<div class="grid-hand-area">
 					<PlayerHand
 						player={store.localPlayer}
 						selectedCards={store.selectedMoneyCards}
@@ -692,28 +663,7 @@
 			{/if}
 		</div>
 		
-		<!-- Mobile Tab Navigation (Bottom) -->
-		{#if store.currentPhase !== GamePhase.SETUP && store.currentPhase !== GamePhase.FINISHED && store.currentPhase !== GamePhase.SCORING}
-			<nav class="mobile-tabs-bottom">
-				<button
-					class="tab-button"
-					class:active={activeMobileTab === 'game'}
-					onclick={() => activeMobileTab = 'game'}
-				>
-					<span class="tab-label">Game</span>
-					{#if store.isMyTurn && activeMobileTab !== 'game'}
-						<span class="tab-badge">!</span>
-					{/if}
-				</button>
-				<button
-					class="tab-button"
-					class:active={activeMobileTab === 'players'}
-					onclick={() => activeMobileTab = 'players'}
-				>
-					<span class="tab-label">Players</span>
-				</button>
-			</nav>
-		{/if}
+
 	</main>
 {/if}
 
@@ -920,112 +870,7 @@
 		letter-spacing: 0.01em;
 	}
 
-	/* Mobile Tabs at Bottom */
-	.mobile-tabs-bottom {
-		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		width: 100%;
-		display: flex;
-		gap: 0;
-		background-color: var(--pico-card-background-color);
-		border-top: 2px solid var(--pico-muted-border-color);
-		padding: 0;
-		z-index: 1000;
-		box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-		box-sizing: border-box;
-		overflow: hidden;
-	}
 
-	.mobile-tabs-bottom .tab-button {
-		flex: 1;
-		padding: 0.875rem 1rem;
-		border: none;
-		background: transparent;
-		color: var(--pico-muted-color);
-		cursor: pointer;
-		font-size: 0.875rem;
-		font-weight: 600;
-		transition: all 0.2s ease;
-		border-top: 3px solid transparent;
-		min-width: auto;
-		margin: 0;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.25rem;
-		position: relative;
-	}
-
-	.mobile-tabs-bottom .tab-button:hover {
-		background-color: var(--pico-secondary-hover);
-		color: var(--pico-color);
-	}
-
-	.mobile-tabs-bottom .tab-button.active {
-		background-color: rgba(var(--pico-primary-rgb, 128, 128, 255), 0.15);
-		color: var(--pico-primary);
-		border-top-color: var(--pico-primary);
-	}
-
-	.tab-label {
-		display: block;
-	}
-
-	.tab-badge {
-		position: absolute;
-		top: 0.5rem;
-		right: 25%;
-		display: inline-block;
-		width: 1.125rem;
-		height: 1.125rem;
-		line-height: 1.125rem;
-		text-align: center;
-		background-color: var(--pico-primary);
-		color: var(--pico-primary-inverse);
-		border-radius: 50%;
-		font-size: 0.7rem;
-		font-weight: bold;
-		animation: pulse 2s ease-in-out infinite;
-	}
-
-	@keyframes pulse {
-		0%, 100% {
-			opacity: 1;
-			transform: scale(1);
-		}
-		50% {
-			opacity: 0.7;
-			transform: scale(1.1);
-		}
-	}
-
-	/* Hide tabs on larger screens */
-	@media (min-width: 768px) {
-		.mobile-tabs-bottom {
-			display: none;
-		}
-	}
-
-	/* Add bottom padding to game container on mobile to account for fixed tabs and player name section */
-	@media (max-width: 767px) {
-		.game-container {
-			padding-bottom: 5rem;
-		}
-	}
-
-	/* Tab hiding for mobile */
-	.tab-hidden {
-		display: none;
-	}
-
-	/* On larger screens, always show all tabs */
-	@media (min-width: 768px) {
-		.tab-hidden {
-			display: block;
-		}
-	}
 
 	.game-grid {
 		display: grid;
@@ -1033,7 +878,6 @@
 		grid-template-columns: 1fr;
 		grid-template-areas:
 			"card"
-			"players"
 			"hand";
 		overflow-x: hidden;
 		width: 100%;
@@ -1045,27 +889,20 @@
 			gap: 0.75rem;
 			grid-template-columns: 1fr 1fr;
 			grid-template-areas:
-				"card players"
-				"hand hand";
+				"card hand";
 		}
 	}
 
 	@media (min-width: 1024px) {
 		.game-grid {
-			grid-template-columns: 300px 1fr 300px;
+			grid-template-columns: 400px 1fr;
 			grid-template-areas:
-				"card players hand";
+				"card hand";
 		}
 	}
 
 	.grid-card-area {
 		grid-area: card;
-		overflow-x: hidden;
-		min-width: 0;
-	}
-
-	.grid-players-area {
-		grid-area: players;
 		overflow-x: hidden;
 		min-width: 0;
 	}
