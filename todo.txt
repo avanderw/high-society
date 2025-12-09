@@ -1,6 +1,6 @@
-Indicate if you have passed for the round
 Improve the auction complete popup and the sibling disgrace one to be more condense
 Provide a notification or pause state for when a player drops
 Give an alert or catch the event for a refresh to provide a warning
 What will happen if the app is switched away from and back, is there something I need to be aware of?
 Favicon needs to be updated
+Randomise player order

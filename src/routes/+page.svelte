@@ -619,6 +619,7 @@
 		</header>
 
 	{#if store.currentAuction && store.localPlayer}
+		{@const activePlayers = store.currentAuction.getActivePlayers()}
 		<section class="auction-info-banner">
 			<div class="money-chip">
 				<span class="money-chip-label">High Bid</span>
@@ -628,6 +629,20 @@
 				<span class="money-chip-label">Your Bid</span>
 				<span class="money-amount">{bannerLocalBid.toLocaleString()}F</span>
 			</div>
+			{#if roomId !== '' && store.players.length > 0}
+				<div class="player-status-chips">
+					{#each store.players as player}
+						{@const hasPassed = !activePlayers.has(player.id)}
+						<div class="player-chip {hasPassed ? 'passed' : 'active'}" title={hasPassed ? `${player.name} has passed` : `${player.name} is bidding`}>
+							<span class="player-color-dot" style="color: {player.color};">●</span>
+							<span class="player-chip-name">{player.name}</span>
+							{#if hasPassed}
+								<span class="passed-indicator">✓</span>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</section>
 	{/if}
 	
@@ -659,6 +674,8 @@
 	{#if store.localPlayer && store.currentAuction}
 		{@const publicState = store.gameState?.getPublicState()}
 		{@const currentPlayerPublic = publicState?.players[store.currentPlayerIndex]}
+		{@const activePlayers = store.currentAuction.getActivePlayers()}
+		{@const hasPassed = !activePlayers.has(store.localPlayer.id)}
 		<div class="grid-hand-area">
 			<PlayerHand
 				player={store.localPlayer}
@@ -673,6 +690,7 @@
 				updateKey={store.updateCounter}
 				currentPlayerName={currentPlayerPublic?.name ?? ''}
 				currentPlayerHasPendingDiscard={currentPlayerPublic?.hasPendingLuxuryDiscard ?? false}
+				hasPassed={hasPassed}
 			/>
 		</div>
 	{/if}			<!-- Score Board -->
@@ -905,7 +923,51 @@
 		letter-spacing: 0.01em;
 	}
 
+	.player-status-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		flex: 1 1 100%;
+		align-items: center;
+	}
 
+	.player-chip {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.3rem 0.6rem;
+		border-radius: var(--pico-border-radius);
+		background: var(--pico-card-background-color);
+		border: 1.5px solid var(--pico-primary);
+		font-size: 0.8rem;
+		transition: all 0.2s ease;
+	}
+
+	.player-chip.passed {
+		border-style: dashed;
+		opacity: 0.6;
+		border-color: var(--pico-muted-color);
+	}
+
+	.player-chip.active {
+		box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
+	}
+
+	.player-color-dot {
+		font-size: 1rem;
+		line-height: 1;
+	}
+
+	.player-chip-name {
+		font-weight: 500;
+		white-space: nowrap;
+	}
+
+	.passed-indicator {
+		color: var(--pico-ins-color);
+		font-weight: bold;
+		margin-left: 0.1rem;
+	}
 
 	.game-grid {
 		display: grid;

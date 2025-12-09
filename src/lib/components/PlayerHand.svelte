@@ -16,9 +16,10 @@
 		remainingStatusCards?: number;
 		currentPlayerName?: string;
 		currentPlayerHasPendingDiscard?: boolean;
+		hasPassed?: boolean;
 	}
 
-	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true, auction, onBid, onPass, isMultiplayer = false, remainingStatusCards = 0, currentPlayerName = '', currentPlayerHasPendingDiscard = false }: Props = $props();
+	let { player, selectedCards, onToggleCard, updateKey = 0, isMyTurn = true, auction, onBid, onPass, isMultiplayer = false, remainingStatusCards = 0, currentPlayerName = '', currentPlayerHasPendingDiscard = false, hasPassed = false }: Props = $props();
 
 	function handleCardToggle(cardId: string) {
 		vibrate(HapticPattern.SELECTION);
@@ -146,6 +147,8 @@
 			<div class="not-your-turn">
 				{#if currentPlayerHasPendingDiscard}
 					<p>⏳ Waiting for <strong>{currentPlayerName}</strong> to discard a luxury card (Faux Pas)...</p>
+				{:else if hasPassed}
+					<p>✓ You have passed this round. Waiting for {currentPlayerName}...</p>
 				{:else}
 					<p>⏳ Waiting for {currentPlayerName}...</p>
 				{/if}
