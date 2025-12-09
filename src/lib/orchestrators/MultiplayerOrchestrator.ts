@@ -69,11 +69,11 @@ export class MultiplayerOrchestrator {
 	
 	// === Broadcast methods (called by local player) ===
 	
-	broadcastGameStart(playerNames: string[], lobbyIndexToGameIndex: number[]) {
+	broadcastGameStart(playerNames: string[], lobbyIndexToGameIndex: number[], seed: number) {
 		this.service.broadcastEvent(GameEventType.GAME_STARTED, {
 			playerNames,
 			lobbyIndexToGameIndex,
-			seed: Date.now()
+			seed
 		});
 	}
 	
@@ -388,10 +388,37 @@ private handlePassAuction(event: GameEvent) {
 			return;
 		}
 		
-		// Don't execute game logic - wait for host to send STATE_SYNC
-		// This event is just for notification, the actual state change
-		// will come via the next STATE_SYNC from the host
-		this.store.forceUpdate();
+		const { cardId, playerId } = event.data as { cardId: string; playerId: string };
+		
+		// Host executes game logic, clients wait for STATE_SYNC
+		if (this.service.isHost()) {
+			logger.debug(ctx, 'handleLuxuryDiscarded() - HOST processing luxury discard', { playerId, cardId });
+			
+			// Execute the luxury discard
+			const discardResult = this.store.handleLuxuryDiscard(cardId);
+			
+			if (discardResult.success) {
+				logger.debug(ctx, 'handleLuxuryDiscarded() - Discard successful, starting new round');
+				
+				// Start new round after luxury discard
+				const newRoundResult = this.store.startNewRound();
+				
+				if (newRoundResult.success) {
+					logger.debug(ctx, 'handleLuxuryDiscarded() - New round started, broadcasting state');
+					this.broadcastStateSync();
+				} else {
+					logger.debug(ctx, 'handleLuxuryDiscarded() - Game ended after discard');
+					// Game over - still broadcast final state
+					this.broadcastStateSync();
+				}
+			} else {
+				logger.error(ctx, 'handleLuxuryDiscarded() - Discard failed', { error: discardResult.error });
+			}
+		} else {
+			// Clients wait for STATE_SYNC from host
+			logger.debug(ctx, 'handleLuxuryDiscarded() - Client received discard event, waiting for STATE_SYNC');
+			this.store.forceUpdate();
+		}
 	}
 	
 	private handleTurnTimeout(event: GameEvent) {

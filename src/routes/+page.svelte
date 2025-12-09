@@ -175,12 +175,16 @@
 			playerMapping.set(lobbyPlayer.playerId, lobbyIndex);
 		});
 		
-		// Initialize game
-		store.initialize(playerNames, Date.now(), turnTimerSeconds);
+		// Initialize game with a fixed seed
+		const seed = Date.now();
+		store.initialize(playerNames, seed, turnTimerSeconds);
 		store.setMultiplayerContext(store.myPlayerId, playerMapping);
 		
-		// Broadcast to clients
-		multiplayerOrchestrator?.broadcastGameStart(playerNames, Array.from({ length: playerNames.length }, (_, i) => i));
+		// Broadcast to clients with the same seed
+		multiplayerOrchestrator?.broadcastGameStart(playerNames, Array.from({ length: playerNames.length }, (_, i) => i), seed);
+		
+		// Broadcast state sync to ensure all clients have exact same state
+		multiplayerOrchestrator?.broadcastStateSync();
 		
 		inLobby = false;
 		feedback.play(FeedbackType.CARD_DEAL);
@@ -394,16 +398,17 @@
 		showToastMessage(result.error ?? 'Failed to pass', 'error');
 	}
 }	function handleLuxuryDiscard(cardId: string) {
-		// In multiplayer, only host executes game logic
-		if (multiplayerOrchestrator && !multiplayerService.isHost()) {
-			console.log('[handleLuxuryDiscard CLIENT] Broadcasting discard, waiting for host response');
+		// In multiplayer, broadcast the discard action
+		if (multiplayerOrchestrator) {
+			console.log('[handleLuxuryDiscard MULTIPLAYER] Broadcasting discard');
 			multiplayerOrchestrator.broadcastLuxuryDiscard(cardId);
 			showLuxuryDiscard = false;
 			feedback.play(FeedbackType.CARD_SELECT);
+			// MultiplayerOrchestrator will handle the game logic on host side
 			return;
 		}
 		
-		// Host (or single-player) executes locally
+		// Single-player mode executes locally
 		const result = store.handleLuxuryDiscard(cardId);
 		
 		if (result.success) {
@@ -415,11 +420,6 @@
 			const newRoundResult = store.startNewRound();
 			if (newRoundResult.success) {
 				console.log('[handleLuxuryDiscard] New round started');
-				// Broadcast in multiplayer
-				if (multiplayerOrchestrator) {
-					multiplayerOrchestrator.broadcastLuxuryDiscard(cardId);
-					multiplayerOrchestrator.broadcastStateSync();
-				}
 			} else {
 				// Game over
 				feedback.play(FeedbackType.GAME_END);
@@ -431,8 +431,20 @@
 	}
 	
 	function handleTurnTimeout() {
+		// Handle luxury discard timeout separately
+		if (showLuxuryDiscard && store.isMyTurn && store.localPlayer) {
+			console.log('Turn timeout during luxury discard - auto-discarding first card');
+			const luxuryCards = store.localPlayer.getLuxuryCards();
+			if (luxuryCards.length > 0) {
+				// Auto-discard the lowest value luxury card
+				const sortedCards = [...luxuryCards].sort((a, b) => a.value - b.value);
+				handleLuxuryDiscard(sortedCards[0].id);
+			}
+			return;
+		}
+		
 		// Don't auto-pass if modal is showing or not our turn
-		if (!store.isMyTurn || showAuctionResult || showLuxuryDiscard) {
+		if (!store.isMyTurn || showAuctionResult) {
 			console.log('Turn timeout ignored - modal showing or not our turn');
 			return;
 		}
@@ -606,23 +618,34 @@
 			</div>
 		</header>
 
-		{#if store.currentAuction && store.localPlayer}
-			<section class="auction-info-banner">
-				<div class="money-chip">
-					<span class="money-chip-label">High Bid</span>
-					<span class="money-amount">{bannerHighBid.toLocaleString()}F</span>
-				</div>
-				<div class="money-chip secondary">
-					<span class="money-chip-label">Your Bid</span>
-					<span class="money-amount">{bannerLocalBid.toLocaleString()}F</span>
-				</div>
+	{#if store.currentAuction && store.localPlayer}
+		<section class="auction-info-banner">
+			<div class="money-chip">
+				<span class="money-chip-label">High Bid</span>
+				<span class="money-amount">{bannerHighBid.toLocaleString()}F</span>
+			</div>
+			<div class="money-chip secondary">
+				<span class="money-chip-label">Your Bid</span>
+				<span class="money-amount">{bannerLocalBid.toLocaleString()}F</span>
+			</div>
+		</section>
+	{/if}
+	
+	<!-- Luxury Discard Waiting Banner -->
+	{#if !showLuxuryDiscard && !store.isMyTurn && store.gameState}
+		{@const publicState = store.gameState.getPublicState()}
+		{@const currentPlayerPublic = publicState.players[store.currentPlayerIndex]}
+		{#if currentPlayerPublic?.hasPendingLuxuryDiscard}
+			<section class="waiting-banner">
+				<mark style="background-color: var(--pico-del-color); padding: 0.5rem 1rem; border-radius: var(--pico-border-radius);">
+					⏳ Waiting for <strong>{currentPlayerPublic.name}</strong> to discard a luxury card (Faux Pas effect)
+				</mark>
 			</section>
 		{/if}
-		
-		<!-- Game Grid Layout -->
-		<div class="game-grid">
-			
-		<!-- Current Card Display -->
+	{/if}
+	
+	<!-- Game Grid Layout -->
+	<div class="game-grid">		<!-- Current Card Display -->
 		{#if store.gameState && store.currentCard}
 			<div class="grid-card-area">
 				<GameBoard
@@ -632,26 +655,27 @@
 			</div>
 		{/if}
 		
-		<!-- Player Hand -->
-		{#if store.localPlayer && store.currentAuction}
-			<div class="grid-hand-area">
-					<PlayerHand
-						player={store.localPlayer}
-						selectedCards={store.selectedMoneyCards}
-						onToggleCard={toggleMoneyCard}
-						isMyTurn={store.isMyTurn}
-						auction={store.currentAuction}
-						onBid={placeBid}
-						onPass={requestPass}
-						isMultiplayer={roomId !== ''}
-						remainingStatusCards={store.remainingStatusCards}
-						updateKey={store.updateCounter}
-						currentPlayerName={store.currentPlayer?.name ?? ''}
-					/>
-				</div>
-			{/if}
-			
-			<!-- Score Board -->
+	<!-- Player Hand -->
+	{#if store.localPlayer && store.currentAuction}
+		{@const publicState = store.gameState?.getPublicState()}
+		{@const currentPlayerPublic = publicState?.players[store.currentPlayerIndex]}
+		<div class="grid-hand-area">
+			<PlayerHand
+				player={store.localPlayer}
+				selectedCards={store.selectedMoneyCards}
+				onToggleCard={toggleMoneyCard}
+				isMyTurn={store.isMyTurn}
+				auction={store.currentAuction}
+				onBid={placeBid}
+				onPass={requestPass}
+				isMultiplayer={roomId !== ''}
+				remainingStatusCards={store.remainingStatusCards}
+				updateKey={store.updateCounter}
+				currentPlayerName={currentPlayerPublic?.name ?? ''}
+				currentPlayerHasPendingDiscard={currentPlayerPublic?.hasPendingLuxuryDiscard ?? false}
+			/>
+		</div>
+	{/if}			<!-- Score Board -->
 			{#if store.currentPhase === GamePhase.FINISHED}
 				<ScoreBoard
 					scoringService={new GameScoringService()}
@@ -836,6 +860,17 @@
 		gap: 0.5rem;
 		align-items: stretch;
 		margin: 0.25rem 0 0.75rem;
+	}
+
+	.waiting-banner {
+		text-align: center;
+		margin: 0.25rem 0 0.75rem;
+		animation: pulse-subtle 2s ease-in-out infinite;
+	}
+
+	@keyframes pulse-subtle {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.85; }
 	}
 
 	.money-chip {
