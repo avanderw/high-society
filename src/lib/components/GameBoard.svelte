@@ -2,6 +2,7 @@
 	import type { GameState } from '$lib/domain/gameState';
 	import { GamePhase } from '$lib/domain/gameState';
 	import { vibrate, HapticPattern } from '$lib/utils/haptics';
+	import { StatusCalculator } from '$lib/domain/scoring';
 
 	interface Props {
 		gameState: GameState;
@@ -29,6 +30,18 @@
 	});
 	const currentCard = $derived(publicState.currentCard);
 	const phase = $derived(publicState.phase);
+
+	// Calculate current scores for all players
+	const statusCalculator = new StatusCalculator();
+	const playerScores = $derived.by(() => {
+		const _ = updateKey;
+		return gameState.getPlayers().map(player => ({
+			name: player.name,
+			color: player.color,
+			score: statusCalculator.calculate(player.getStatusCards()),
+			money: player.getTotalRemainingMoney()
+		}));
+	});
 </script>
 
 <article>
@@ -55,6 +68,16 @@
 					{/each}
 				</span>
 				<span class="progress-bar-cards">{publicState.remainingStatusCards} cards left</span>
+
+				<!-- Current Scores -->
+				<div class="scores-row">
+					{#each playerScores as ps}
+						<div class="score-chip" title="{ps.name}: {ps.money.toLocaleString()}F">
+							<span class="score-dot" style="background-color: {ps.color};"></span>
+							<span class="score-val">{ps.score}</span>
+						</div>
+					{/each}
+				</div>
 				
 				{#if onBid && onPass}
 					{#if isMultiplayer && !isMyTurn}
@@ -130,8 +153,8 @@
 	.action-buttons {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
-		margin-top: 0.5rem;
+		gap: 0.35rem;
+		margin-top: 0.35rem;
 		width: 100%;
 		max-width: 100%;
 		box-sizing: border-box;
@@ -140,12 +163,40 @@
 	.action-buttons button {
 		width: 100%;
 		max-width: 100%;
-		padding: 0.75rem 0.5rem;
-		font-size: 0.85rem;
+		padding: 0.5rem 0.5rem;
+		font-size: 0.8rem;
 		margin: 0;
 		box-sizing: border-box;
-		white-space: normal;
-		word-wrap: break-word;
+	}
+
+	.scores-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+		justify-content: center;
+		margin-top: 0.25rem;
+	}
+
+	.score-chip {
+		display: flex;
+		align-items: center;
+		gap: 0.15rem;
+		padding: 0.1rem 0.25rem;
+		background: var(--pico-card-sectioning-background-color);
+		border-radius: 3px;
+		font-size: 0.7rem;
+	}
+
+	.score-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.score-val {
+		font-weight: 700;
+		color: var(--pico-primary);
 	}
 
 	.not-your-turn {

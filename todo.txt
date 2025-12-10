@@ -1,6 +1,6 @@
-Improve the auction complete popup and the sibling disgrace one to be more condense
 Provide a notification or pause state for when a player drops
-What will happen if the app is switched away from and back, is there something I need to be aware of?
 Favicon needs to be updated
 Randomise player order
-Better colours on the money cards with contrast to the text
+Fix the timeout reset after a timeout is experienced
+Fix the blank scenario when the discard disgrace card is taken and all players see blank, they need to see the current status instead of blank, e.g. waiting for player X to discard a card
+We need to put the player name in their colour so that the players can communicate what colour they are when looking at scores
