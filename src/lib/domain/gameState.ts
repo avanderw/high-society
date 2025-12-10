@@ -33,7 +33,7 @@ export class GameContext {
 }
 
 // Simple seeded random number generator (mulberry32)
-class SeededRandom {
+export class SeededRandom {
   private seed: number;
 
   constructor(seed: number) {
@@ -48,7 +48,7 @@ class SeededRandom {
   }
 }
 
-function shuffleArray<T>(array: T[], rng?: SeededRandom): T[] {
+export function shuffleArray<T>(array: T[], rng?: SeededRandom): T[] {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor((rng ? rng.next() : Math.random()) * (i + 1));

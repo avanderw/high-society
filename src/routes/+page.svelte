@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { GamePhase } from '$lib/domain/gameState';
+	import { GamePhase, SeededRandom, shuffleArray } from '$lib/domain/gameState';
 	import { GameScoringService } from '$lib/domain/scoring';
 	import type { Player } from '$lib/domain/player';
 	import type { StatusCard } from '$lib/domain/cards';
@@ -193,19 +193,26 @@
 	}
 	
 	function startGameAsHost(playerNames: string[]) {
-		// Create player ID to game index mapping
+		// Generate seed for deterministic randomization
+		const seed = Date.now();
+		const rng = new SeededRandom(seed);
+		
+		// Shuffle lobby players to randomize play order
+		const shuffledLobbyPlayers = shuffleArray(lobbyPlayers, rng);
+		const shuffledPlayerNames = shuffledLobbyPlayers.map(p => p.playerName);
+		
+		// Create player ID to game index mapping based on shuffled order
 		const playerMapping = new Map<string, number>();
-		lobbyPlayers.forEach((lobbyPlayer, lobbyIndex) => {
-			playerMapping.set(lobbyPlayer.playerId, lobbyIndex);
+		shuffledLobbyPlayers.forEach((lobbyPlayer, gameIndex) => {
+			playerMapping.set(lobbyPlayer.playerId, gameIndex);
 		});
 		
-		// Initialize game with a fixed seed
-		const seed = Date.now();
-		store.initialize(playerNames, seed, turnTimerSeconds);
+		// Initialize game with shuffled player order
+		store.initialize(shuffledPlayerNames, seed, turnTimerSeconds);
 		store.setMultiplayerContext(store.myPlayerId, playerMapping);
 		
-		// Broadcast to clients with the same seed
-		multiplayerOrchestrator?.broadcastGameStart(playerNames, Array.from({ length: playerNames.length }, (_, i) => i), seed);
+		// Broadcast to clients with the same seed and shuffled names
+		multiplayerOrchestrator?.broadcastGameStart(shuffledPlayerNames, Array.from({ length: shuffledPlayerNames.length }, (_, i) => i), seed);
 		
 		// Broadcast state sync to ensure all clients have exact same state
 		multiplayerOrchestrator?.broadcastStateSync();
@@ -222,13 +229,17 @@
 		
 		const { playerNames, seed } = event.data;
 		
-		// Create player ID to game index mapping
+		// Create player ID to game index mapping based on the shuffled player names from host
+		// Match each shuffled name to its corresponding lobby player ID
 		const playerMapping = new Map<string, number>();
-		lobbyPlayers.forEach((lobbyPlayer, lobbyIndex) => {
-			playerMapping.set(lobbyPlayer.playerId, lobbyIndex);
+		playerNames.forEach((name: string, gameIndex: number) => {
+			const lobbyPlayer = lobbyPlayers.find(p => p.playerName === name);
+			if (lobbyPlayer) {
+				playerMapping.set(lobbyPlayer.playerId, gameIndex);
+			}
 		});
 		
-		// Initialize game with same seed as host
+		// Initialize game with same seed as host (playerNames are already shuffled by host)
 		store.initialize(playerNames, seed, turnTimerSeconds);
 		store.setMultiplayerContext(store.myPlayerId, playerMapping);
 		

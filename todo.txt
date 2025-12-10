@@ -1,4 +1,2 @@
 Provide a notification or pause state for when a player drops
 Favicon needs to be updated
-Randomise player order
-Fix the timeout reset after a timeout is experienced
