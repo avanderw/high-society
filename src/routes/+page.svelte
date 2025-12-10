@@ -553,6 +553,68 @@
 			window.removeEventListener('beforeunload', handleBeforeUnload);
 		};
 	});
+
+	// Wake Lock to prevent screen from sleeping during gameplay
+	let wakeLock: WakeLockSentinel | null = null;
+
+	async function requestWakeLock() {
+		if (!('wakeLock' in navigator)) {
+			return; // Wake Lock API not supported
+		}
+		
+		try {
+			wakeLock = await navigator.wakeLock.request('screen');
+			console.log('Screen Wake Lock activated');
+			
+			// Re-acquire wake lock if released (e.g., page visibility change)
+			wakeLock.addEventListener('release', () => {
+				console.log('Screen Wake Lock released');
+			});
+		} catch (err) {
+			console.error('Failed to acquire wake lock:', err);
+		}
+	}
+
+	async function releaseWakeLock() {
+		if (wakeLock) {
+			try {
+				await wakeLock.release();
+				wakeLock = null;
+			} catch (err) {
+				console.error('Failed to release wake lock:', err);
+			}
+		}
+	}
+
+	// Manage wake lock based on game state
+	$effect(() => {
+		if (!inLobby) {
+			// Game is active, request wake lock
+			requestWakeLock();
+		} else {
+			// In lobby, release wake lock
+			releaseWakeLock();
+		}
+		
+		return () => {
+			releaseWakeLock();
+		};
+	});
+
+	// Re-acquire wake lock when page becomes visible again
+	$effect(() => {
+		function handleVisibilityChange() {
+			if (!document.hidden && !inLobby && !wakeLock) {
+				requestWakeLock();
+			}
+		}
+		
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+		
+		return () => {
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		};
+	});
 </script>
 
 <svelte:head>
