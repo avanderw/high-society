@@ -1,11 +1,11 @@
 // Domain Layer - Card System
 
 export enum PlayerColor {
-  RED = 'red',
-  BLUE = 'blue',
-  GREEN = 'green',
-  YELLOW = 'yellow',
-  PURPLE = 'purple'
+  RED = '#ff6b6b',
+  BLUE = '#74c0fc',
+  GREEN = '#69db7c',
+  YELLOW = '#ffd43b',
+  PURPLE = '#da77f2'
 }
 
 // Base Card Abstraction

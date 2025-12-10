@@ -64,8 +64,8 @@
 		{#each playerStatuses as { player, playerIndex, currentStatus, statusCards }}
 			<details>
 				<summary>
-					<span style="color: {player.color};">●</span>
-					<strong>{player.name}</strong> - Status: {currentStatus}
+					<span class="player-dot" style="background-color: {player.color};"></span>
+					<strong style="color: {player.color};">{player.name}</strong> - Status: {currentStatus}
 					{#if player.getPendingLuxuryDiscard()}
 						<mark style="background-color: var(--pico-del-color);">Must Discard</mark>
 					{/if}
@@ -115,6 +115,13 @@
 
 	summary:hover {
 		background: var(--pico-card-sectioning-background-color);
+	}
+
+	.player-dot {
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		flex-shrink: 0;
 	}
 
 	.turn-timer {

@@ -40,7 +40,7 @@
 					<div class="ranking-row {ranking.rank === 1 && !ranking.isCastOut ? 'winner' : ''} {ranking.isCastOut ? 'cast-out' : ''}">
 						<span class="rank">#{ranking.rank}</span>
 						<span class="player-dot" style="background-color: {ranking.player.color};"></span>
-						<span class="player-name">{ranking.player.name}</span>
+						<span class="player-name" style="color: {ranking.player.color};">{ranking.player.name}</span>
 						<span class="player-score">{ranking.finalStatus}</span>
 						{#if ranking.isCastOut}
 							<span class="result-badge cast-out">Cast Out</span>
@@ -57,7 +57,7 @@
 					<div class="detail-card">
 						<div class="detail-header">
 							<span class="player-dot" style="background-color: {ranking.player.color};"></span>
-							<span class="detail-name">{ranking.player.name}</span>
+							<span class="detail-name" style="color: {ranking.player.color};">{ranking.player.name}</span>
 						</div>
 						<div class="detail-stats">
 							<span>Status: <strong>{ranking.finalStatus}</strong></span>

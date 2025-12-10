@@ -661,7 +661,7 @@
 					High Society
 				</h1>
 				{#if store.localPlayer}
-					<p class="player-name-subtitle">{store.localPlayer.name}</p>
+					<p class="player-name-subtitle" style="color: {store.localPlayer.color};">{store.localPlayer.name}</p>
 				{/if}
 			</div>
 			
