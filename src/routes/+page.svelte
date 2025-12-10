@@ -158,12 +158,23 @@
 				return;
 			}
 			
-			// Find the status card from the winner's cards
-			const card = winner.getStatusCards().find(c => c.id === auctionResultData.card.id);
-			if (!card) {
-				console.log('[AuctionComplete Callback] Could not find card:', auctionResultData.card.id);
-				return;
-			}
+			// Create a card-like object from the serialized card data
+			// This avoids needing to find the card in the winner's collection (which may fail on clients)
+			const cardData = auctionResultData.card;
+			const card = {
+				id: cardData.id,
+				name: cardData.name,
+				getDisplayValue: () => {
+					// For disgrace cards, show their special display value
+					if (auctionResultData.isDisgrace) {
+						if (cardData.name === 'Faux Pas') return 'Discard Luxury';
+						if (cardData.name === 'Passé') return '÷2';
+						if (cardData.name === 'Scandale') return '-5';
+					}
+					// For luxury/prestige cards, show the value
+					return cardData.value !== undefined ? `${cardData.value}` : '×2';
+				}
+			} as any;
 			
 			// Reconstruct losers info if present
 			const losersInfo = auctionResultData.losersInfo?.map(info => ({
@@ -180,6 +191,14 @@
 				isDisgrace: auctionResultData.isDisgrace,
 				losersInfo
 			});
+			
+			// Check if local player needs to show luxury discard modal
+			// This happens when a disgrace card (Faux Pas) is awarded
+			const localPlayer = store.localPlayer;
+			if (localPlayer && localPlayer.getPendingLuxuryDiscard() && localPlayer.getLuxuryCards().length > 0) {
+				console.log('[AuctionComplete Callback] Local player needs luxury discard');
+				showLuxuryDiscard = true;
+			}
 		});
 		
 		// Add game started event listener
