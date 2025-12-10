@@ -1,13 +1,25 @@
 <script lang="ts">
 	import type { GameState } from '$lib/domain/gameState';
 	import { GamePhase } from '$lib/domain/gameState';
+	import { vibrate, HapticPattern } from '$lib/utils/haptics';
 
 	interface Props {
 		gameState: GameState;
 		updateKey?: number;
+		onBid?: () => void;
+		onPass?: () => void;
+		isMyTurn?: boolean;
+		isMultiplayer?: boolean;
+		selectedCards?: string[];
+		currentBid?: number;
+		newTotalBid?: number;
+		canBid?: boolean;
+		currentPlayerName?: string;
+		currentPlayerHasPendingDiscard?: boolean;
+		hasPassed?: boolean;
 	}
 
-	let { gameState, updateKey = 0 }: Props = $props();
+	let { gameState, updateKey = 0, onBid, onPass, isMyTurn = true, isMultiplayer = false, selectedCards = [], currentBid = 0, newTotalBid = 0, canBid = true, currentPlayerName = '', currentPlayerHasPendingDiscard = false, hasPassed = false }: Props = $props();
 
 	// Force reactivity by ensuring derived depends on updateKey
 	const publicState = $derived.by(() => {
@@ -21,32 +33,66 @@
 
 <article>
 	{#if currentCard}
-		<section class="card-display">
-			<div class="status-card {phase === GamePhase.DISGRACE_AUCTION ? 'disgrace' : 'luxury'}">
-				<h2>{currentCard.name}</h2>
-				<div class="card-value">
-					{currentCard.getDisplayValue()}
+		<div class="card-and-tracker-row">
+			<div class="main-card-area">
+				<div class="status-card {phase === GamePhase.DISGRACE_AUCTION ? 'disgrace' : 'luxury'}">
+					<h2>{currentCard.name}</h2>
+					<div class="card-value">
+						{currentCard.getDisplayValue()}
+					</div>
+					{#if phase === GamePhase.DISGRACE_AUCTION}
+						<div class="card-instruction disgrace-instruction"><mark>Bid to avoid</mark></div>
+					{:else}
+						<div class="card-instruction">Bid to win</div>
+					{/if}
 				</div>
-				{#if phase === GamePhase.DISGRACE_AUCTION}
-					<div class="card-instruction disgrace-instruction"><mark>Bid to avoid</mark></div>
-				{:else}
-					<div class="card-instruction">Bid to win</div>
+			</div>
+			<div class="progress-bar-section compact horizontal">
+				<span class="progress-bar-label">End Game Tracker</span>
+				<span class="progress-bar-4">
+					{#each Array(4) as _, i}
+						<span class="progress-bar-segment {i < publicState.gameEndTriggerCount ? 'filled' : ''}"></span>
+					{/each}
+				</span>
+				<span class="progress-bar-cards">{publicState.remainingStatusCards} cards left</span>
+				
+				{#if onBid && onPass}
+					{#if isMultiplayer && !isMyTurn}
+						<div class="not-your-turn">
+							{#if currentPlayerHasPendingDiscard}
+								<p>⏳ Waiting for <strong>{currentPlayerName}</strong> to discard...</p>
+							{:else if hasPassed}
+								<p>✓ You passed. Waiting...</p>
+							{:else}
+								<p>⏳ Waiting for {currentPlayerName}...</p>
+							{/if}
+						</div>
+					{:else}
+						<div class="action-buttons">
+							<button 
+								onclick={() => { vibrate(HapticPattern.LIGHT); onPass(); }}
+								class="secondary"
+							>
+								Pass
+							</button>
+							<button 
+								onclick={() => { vibrate(HapticPattern.SUCCESS); onBid(); }} 
+								disabled={!canBid || (selectedCards?.length ?? 0) === 0}
+								class="primary"
+							>
+								Place Bid ({newTotalBid.toLocaleString()})
+							</button>
+						</div>
+						{#if !canBid && (selectedCards?.length ?? 0) > 0}
+							<div class="warning-text">
+								⚠️ New total ({newTotalBid.toLocaleString()}) must be higher than {currentBid.toLocaleString()}
+							</div>
+						{/if}
+					{/if}
 				{/if}
 			</div>
-		</section>
-	{/if}
-
-	<footer>
-		<div class="progress-bar-section compact horizontal">
-			<span class="progress-bar-label">End Game Tracker</span>
-			<span class="progress-bar-4">
-				{#each Array(4) as _, i}
-					<span class="progress-bar-segment {i < publicState.gameEndTriggerCount ? 'filled' : ''}"></span>
-				{/each}
-			</span>
-			<span class="progress-bar-cards">{publicState.remainingStatusCards} cards left</span>
 		</div>
-	</footer>
+	{/if}
 </article>
 
 <style>
@@ -54,9 +100,88 @@
 		margin-bottom: 0;
 	}
 
-	footer {
-		padding-top: 0.3rem;
-		padding-bottom: 0.3rem;
+	.card-and-tracker-row {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+		gap: 0.5rem;
+		width: 100%;
+	}
+
+	.main-card-area {
+		flex: 0 0 50%;
+		min-width: 0;
+	}
+
+	.progress-bar-section {
+		flex: 0 0 50%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 0.5rem;
+		min-width: 0;
+		max-width: 50%;
+		word-wrap: break-word;
+		overflow-wrap: break-word;
+		box-sizing: border-box;
+	}
+
+	.action-buttons {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
+		width: 100%;
+		max-width: 100%;
+		box-sizing: border-box;
+	}
+
+	.action-buttons button {
+		width: 100%;
+		max-width: 100%;
+		padding: 0.75rem 0.5rem;
+		font-size: 0.85rem;
+		margin: 0;
+		box-sizing: border-box;
+		white-space: normal;
+		word-wrap: break-word;
+	}
+
+	.not-your-turn {
+		margin-top: 0.5rem;
+		padding: 0.5rem;
+		background: var(--pico-card-background-color);
+		border-radius: var(--pico-border-radius);
+		text-align: center;
+		font-size: 0.85rem;
+		opacity: 0.8;
+		word-wrap: break-word;
+		overflow-wrap: break-word;
+		width: 100%;
+		max-width: 100%;
+		box-sizing: border-box;
+	}
+
+	.not-your-turn p {
+		margin: 0;
+		word-wrap: break-word;
+		overflow-wrap: break-word;
+	}
+
+	.warning-text {
+		margin-top: 0.25rem;
+		padding: 0.4rem;
+		background: rgba(var(--pico-del-color), 0.1);
+		border-radius: var(--pico-border-radius);
+		font-size: 0.75rem;
+		color: var(--pico-del-color);
+		text-align: center;
+		word-wrap: break-word;
+		overflow-wrap: break-word;
+		width: 100%;
+		max-width: 100%;
+		box-sizing: border-box;
 	}
 
 	@media (min-width: 768px) {
@@ -90,12 +215,12 @@
 	.card-display {
 		display: flex;
 		justify-content: center;
-		padding: 0.25rem 0;
+		padding: 0.15rem 0;
 	}
 
 	@media (min-width: 768px) {
 		.card-display {
-			padding: 1.5rem 0;
+			padding: 0.75rem 0;
 		}
 	}
 
@@ -220,9 +345,9 @@
 
 .progress-bar-section.compact.horizontal {
 	display: flex;
-	flex-direction: row;
+	flex-direction: column;
 	align-items: center;
-	justify-content: center;
+	justify-content: flex-start;
 	gap: 0.5rem;
 	margin: 0.1rem 0 0.1rem 0;
 }

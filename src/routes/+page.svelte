@@ -710,20 +710,6 @@
 				<span class="money-chip-label">Your Bid</span>
 				<span class="money-amount">{bannerLocalBid.toLocaleString()}F</span>
 			</div>
-			{#if roomId !== '' && store.players.length > 0}
-				<div class="player-status-chips">
-					{#each store.players as player}
-						{@const hasPassed = !activePlayers.has(player.id)}
-						<div class="player-chip {hasPassed ? 'passed' : 'active'}" title={hasPassed ? `${player.name} has passed` : `${player.name} is bidding`}>
-							<span class="player-color-dot" style="color: {player.color};">●</span>
-							<span class="player-chip-name">{player.name}</span>
-							{#if hasPassed}
-								<span class="passed-indicator">✓</span>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
 		</section>
 	{/if}
 	
@@ -742,11 +728,31 @@
 	
 	<!-- Game Grid Layout -->
 	<div class="game-grid">		<!-- Current Card Display -->
-		{#if store.gameState && store.currentCard}
+		{#if store.gameState && store.currentCard && store.localPlayer && store.currentAuction}
+			{@const publicState = store.gameState.getPublicState()}
+			{@const currentPlayerPublic = publicState.players[store.currentPlayerIndex]}
+			{@const activePlayers = store.currentAuction.getActivePlayers()}
+			{@const hasPassed = !activePlayers.has(store.localPlayer.id)}
+			{@const currentBid = store.currentAuction.getCurrentHighestBid()}
+			{@const playerCurrentBid = store.localPlayer.getCurrentBidAmount()}
+			{@const totalSelected = store.selectedMoneyCards.reduce((sum: number, cardId: string) => sum + (store.localPlayer?.getMoneyHand().find((c: any) => c.id === cardId)?.value ?? 0), 0)}
+			{@const newTotalBid = playerCurrentBid + totalSelected}
+			{@const canBid = newTotalBid > currentBid}
 			<div class="grid-card-area">
 				<GameBoard
 					gameState={store.gameState}
 					updateKey={store.updateCounter}
+					onBid={placeBid}
+					onPass={requestPass}
+					isMyTurn={store.isMyTurn}
+					isMultiplayer={roomId !== ''}
+					selectedCards={store.selectedMoneyCards}
+					currentBid={currentBid}
+					newTotalBid={newTotalBid}
+					canBid={canBid}
+					currentPlayerName={currentPlayerPublic?.name ?? ''}
+					currentPlayerHasPendingDiscard={currentPlayerPublic?.hasPendingLuxuryDiscard ?? false}
+					hasPassed={hasPassed}
 				/>
 			</div>
 		{/if}
@@ -1015,8 +1021,8 @@
 	.player-chip {
 		display: flex;
 		align-items: center;
-		gap: 0.3rem;
-		padding: 0.3rem 0.6rem;
+		gap: 0.2rem;
+		padding: 0.25rem 0.4rem;
 		border-radius: var(--pico-border-radius);
 		background: var(--pico-card-background-color);
 		border: 1.5px solid var(--pico-primary);
@@ -1037,11 +1043,6 @@
 	.player-color-dot {
 		font-size: 1rem;
 		line-height: 1;
-	}
-
-	.player-chip-name {
-		font-weight: 500;
-		white-space: nowrap;
 	}
 
 	.passed-indicator {

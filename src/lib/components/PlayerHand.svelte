@@ -142,45 +142,6 @@
 
 	</section>
 
-	<footer>
-		{#if isMultiplayer && !isMyTurn}
-			<div class="not-your-turn">
-				{#if currentPlayerHasPendingDiscard}
-					<p>⏳ Waiting for <strong>{currentPlayerName}</strong> to discard a luxury card (Faux Pas)...</p>
-				{:else if hasPassed}
-					<p>✓ You have passed this round. Waiting for {currentPlayerName}...</p>
-				{:else}
-					<p>⏳ Waiting for {currentPlayerName}...</p>
-				{/if}
-			</div>
-		{:else}
-			<div class="grid">
-				<button 
-					onclick={handlePass}
-					class="secondary"
-				>
-					Pass
-				</button>
-				<button 
-					onclick={handleBid} 
-					disabled={!canBid || totalSelected === 0}
-					class="primary"
-				>
-					Place Bid ({newTotalBid.toLocaleString()})
-				</button>
-			</div>
-			{#if !canBid && totalSelected > 0}
-				<div class="warning-text">
-					⚠️ Your new total ({newTotalBid.toLocaleString()}) must be higher than {currentBid.toLocaleString()}
-				</div>
-			{/if}
-			{#if shouldShowMoneyWarning && totalSelected > 0}
-				<div class="warning-text money-warning">
-					{moneyWarningText}
-				</div>
-			{/if}
-		{/if}
-	</footer>
 </article>
 
 <style>
@@ -195,12 +156,12 @@
 	}
 
 	section {
-		padding: 0.25rem 0;
+		padding: 0.1rem 0;
 	}
 
 	@media (min-width: 768px) {
 		section {
-			padding: 0.5rem 0;
+			padding: 0.3rem 0;
 		}
 	}
 
@@ -217,15 +178,15 @@
 	.money-cards {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.35rem;
-		margin: 0.4rem 0;
-		padding-bottom: 0.15rem;
+		gap: 0.3rem;
+		margin: 0.2rem 0;
+		padding-bottom: 0.1rem;
 	}
 
 	@media (min-width: 768px) {
 		.money-cards {
-			gap: 0.5rem;
-			margin: 0.75rem 0;
+			gap: 0.4rem;
+			margin: 0.5rem 0;
 		}
 	}
 
