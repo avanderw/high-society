@@ -3,7 +3,7 @@
  * Handles multiplayer event synchronization
  */
 
-import type { GameState } from '$lib/domain/gameState';
+import { type GameState, GamePhase } from '$lib/domain/gameState';
 import type { Player } from '$lib/domain/player';
 import type { StatusCard } from '$lib/domain/cards';
 import { GameEventType, type GameEvent } from '$lib/multiplayer/events';
@@ -27,6 +27,7 @@ export class MultiplayerOrchestrator {
 			losersInfo?: Array<{ playerId: string; playerName: string; bidAmount: number }>;
 		}
 	) => void;
+	private onGameEndCallback?: () => void;
 	
 	constructor(
 		private service: MultiplayerService,
@@ -48,6 +49,13 @@ export class MultiplayerOrchestrator {
 		}
 	) => void) {
 		this.onAuctionCompleteCallback = callback;
+	}
+	
+	/**
+	 * Set callback for when game ends (to play sound and track stats)
+	 */
+	setOnGameEnd(callback: () => void) {
+		this.onGameEndCallback = callback;
 	}
 	
 	/**
@@ -194,7 +202,20 @@ broadcastAuctionComplete(auctionResultData?: {
 		
 		const { gameState: serialized } = event.data as { gameState: SerializedGameState };
 		const deserialized = deserializeGameState(serialized);
+		
+		// Check if game just ended
+		const previousPhase = this.store.currentPhase;
+		const newPhase = deserialized.getCurrentPhase();
+		const gameJustEnded = (previousPhase !== GamePhase.SCORING && previousPhase !== GamePhase.FINISHED) && 
+							   (newPhase === GamePhase.SCORING || newPhase === GamePhase.FINISHED);
+		
 		this.store.updateFromSerialized(deserialized);
+		
+		// Notify if game just ended
+		if (gameJustEnded && this.onGameEndCallback) {
+			logger.debug(ctx, 'handleStateSync() - Game ended, triggering callback');
+			this.onGameEndCallback();
+		}
 	}
 	
 	private handleBidPlaced(event: GameEvent) {
@@ -408,8 +429,11 @@ private handlePassAuction(event: GameEvent) {
 					this.broadcastStateSync();
 				} else {
 					logger.debug(ctx, 'handleLuxuryDiscarded() - Game ended after discard');
-					// Game over - still broadcast final state
+					// Game over - still broadcast final state and notify UI
 					this.broadcastStateSync();
+					if (this.onGameEndCallback) {
+						this.onGameEndCallback();
+					}
 				}
 			} else {
 				logger.error(ctx, 'handleLuxuryDiscarded() - Discard failed', { error: discardResult.error });

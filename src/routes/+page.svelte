@@ -201,6 +201,13 @@
 			}
 		});
 		
+		// Set callback for when game ends (to play sound and track stats)
+		multiplayerOrchestrator.setOnGameEnd(() => {
+			console.log('[GameEnd Callback] Game ended');
+			feedback.play(FeedbackType.GAME_END);
+			trackGameStatistics();
+		});
+		
 		// Add game started event listener
 		multiplayerService.on(GameEventType.GAME_STARTED, handleGameStarted);
 		
@@ -533,7 +540,7 @@
 	
 	function trackGameStatistics() {
 		const localPlayer = store.localPlayer;
-		if (!localPlayer || store.currentPhase !== GamePhase.FINISHED) return;
+		if (!localPlayer || (store.currentPhase !== GamePhase.FINISHED && store.currentPhase !== GamePhase.SCORING)) return;
 		
 		const scoringService = new GameScoringService();
 		const rankings = scoringService.calculateFinalRankings(store.players);
@@ -591,7 +598,7 @@
 	// Warn user before leaving/refreshing during an active game
 	function handleBeforeUnload(event: BeforeUnloadEvent) {
 		// Only warn if game is active (not in lobby, not finished)
-		if (!inLobby && store.currentPhase !== GamePhase.FINISHED) {
+		if (!inLobby && store.currentPhase !== GamePhase.FINISHED && store.currentPhase !== GamePhase.SCORING) {
 			event.preventDefault();
 			// Modern browsers ignore custom messages, but we still need to set returnValue
 			event.returnValue = '';
@@ -838,7 +845,7 @@
 			/>
 		</div>
 	{/if}			<!-- Score Board -->
-			{#if store.currentPhase === GamePhase.FINISHED}
+			{#if store.currentPhase === GamePhase.FINISHED || store.currentPhase === GamePhase.SCORING}
 				<ScoreBoard
 					scoringService={new GameScoringService()}
 					players={store.players}
