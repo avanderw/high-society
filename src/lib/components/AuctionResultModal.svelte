@@ -16,68 +16,60 @@
 
 <dialog open>
 	<article>
-		<header>
-			<h2>{isDisgrace ? '😱 Disgrace!' : '🎯 Auction Complete!'}</h2>
+		<header class={isDisgrace ? 'disgrace' : 'success'}>
+			<h2>{isDisgrace ? 'Disgrace!' : 'Auction Won!'}</h2>
 		</header>
 
 		<section class="result-content">
-			{#if winner}
-				{#if isDisgrace}
-					<!-- Disgrace card result -->
-					<div class="disgrace-info">
-						<h3>
-							<span style="color: {winner.color};">●</span>
-							{winner.name} gets the disgrace card
-						</h3>
-						<p class="disgrace-note">They passed first and got their money back: {winningBid.toLocaleString()} Francs</p>
+			<div class="layout-row">
+				<!-- Card Display -->
+				<div class="card-container">
+					<div class="status-card {isDisgrace ? 'disgrace' : 'luxury'}">
+						<div class="card-name">{card.name}</div>
+						<div class="card-value">{card.getDisplayValue()}</div>
 					</div>
+				</div>
 
-					<div class="card-won disgrace-card">
-						<h4>Card Received:</h4>
-						<div class="card-display disgrace">
-							<strong>{card.name}</strong>
-							<span class="card-value">{card.getDisplayValue()}</span>
+				<!-- Result Info -->
+				<div class="result-info">
+					{#if winner}
+						<div class="winner-row">
+							<span class="player-dot" style="background-color: {winner.color};"></span>
+							<span class="player-name">{winner.name}</span>
 						</div>
-					</div>
+						
+						{#if isDisgrace}
+							<div class="result-detail refund">
+								<span class="label">Refunded</span>
+								<span class="value">{winningBid.toLocaleString()}F</span>
+							</div>
+						{:else}
+							<div class="result-detail paid">
+								<span class="label">Paid</span>
+								<span class="value">{winningBid.toLocaleString()}F</span>
+							</div>
+						{/if}
 
-					{#if losersInfo.length > 0}
-						<div class="bids-section">
-							<h4>Other Players' Bids (Lost):</h4>
-							<div class="bids-list">
+						{#if isDisgrace && losersInfo.length > 0}
+							<div class="losers-section">
+								<span class="losers-label">Lost bids:</span>
 								{#each losersInfo as { player, bidAmount }}
-									<div class="bid-item paid">
-										<span style="color: {player.color};">●</span>
-										<strong>{player.name}</strong>
-										<span class="bid-amount lost">{bidAmount.toLocaleString()} Francs</span>
+									<div class="loser-row">
+										<span class="player-dot small" style="background-color: {player.color};"></span>
+										<span class="loser-name">{player.name}</span>
+										<span class="loser-amount">-{bidAmount.toLocaleString()}F</span>
 									</div>
 								{/each}
 							</div>
+						{/if}
+					{:else}
+						<div class="no-winner">
+							<p>No winner</p>
+							<small>Card returned to deck</small>
 						</div>
 					{/if}
-				{:else}
-					<!-- Regular luxury card result -->
-					<div class="winner-info">
-						<h3>
-							<span style="color: {winner.color};">●</span>
-							{winner.name} wins!
-						</h3>
-						<p class="winning-bid">Winning bid: {winningBid.toLocaleString()} Francs</p>
-					</div>
-
-					<div class="card-won">
-						<h4>Card Won:</h4>
-						<div class="card-display">
-							<strong>{card.name}</strong>
-							<span class="card-value">{card.getDisplayValue()}</span>
-						</div>
-					</div>
-				{/if}
-			{:else}
-				<div class="no-winner">
-					<p>No one won this auction!</p>
-					<p class="card-info">The card <strong>{card.name}</strong> goes back to the deck.</p>
 				</div>
-			{/if}
+			</div>
 		</section>
 
 		<footer>
@@ -97,12 +89,13 @@
 		align-items: center;
 		justify-content: center;
 		background-color: rgba(0, 0, 0, 0.7);
+		backdrop-filter: blur(2px);
 		z-index: 1000;
 		padding: 1rem;
 	}
 
 	article {
-		max-width: min(500px, 95vw);
+		max-width: min(420px, 95vw);
 		width: 100%;
 		margin: 0;
 		animation: slideIn 0.3s ease-out;
@@ -112,7 +105,7 @@
 
 	@keyframes slideIn {
 		from {
-			transform: translateY(-50px);
+			transform: translateY(-30px);
 			opacity: 0;
 		}
 		to {
@@ -121,144 +114,248 @@
 		}
 	}
 
+	header {
+		text-align: center;
+		padding: 0.75rem 1rem;
+		margin: -1rem -1rem 1rem -1rem;
+		border-radius: var(--pico-border-radius) var(--pico-border-radius) 0 0;
+	}
+
+	header.success {
+		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(0, 255, 0, 0.15) 100%);
+		border-bottom: 2px solid var(--pico-ins-color);
+	}
+
+	header.disgrace {
+		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(255, 0, 0, 0.15) 100%);
+		border-bottom: 2px solid var(--pico-del-color);
+	}
+
 	header h2 {
-		font-size: clamp(1.25rem, 4vw, 1.5rem);
+		margin: 0;
+		font-size: clamp(1.1rem, 4vw, 1.3rem);
+	}
+
+	header.success h2 {
+		color: var(--pico-ins-color);
+	}
+
+	header.disgrace h2 {
+		color: var(--pico-del-color);
 	}
 
 	.result-content {
-		text-align: center;
-		padding: 1rem 0;
+		padding: 0.5rem 0;
 	}
 
-	.winner-info h3 {
-		margin: 0 0 0.5rem 0;
-		font-size: clamp(1.25rem, 4vw, 1.5rem);
+	.layout-row {
+		display: flex;
+		gap: 1rem;
+		align-items: flex-start;
 	}
 
-	.winning-bid {
-		font-size: clamp(1rem, 2.5vw, 1.1rem);
-		color: var(--pico-primary);
-		font-weight: bold;
+	.card-container {
+		flex: 0 0 auto;
 	}
 
-	.card-won {
-		margin-top: 1.5rem;
-		padding: 1rem;
-		background-color: var(--pico-card-sectioning-background-color);
+	.status-card {
+		width: 100px;
+		aspect-ratio: 2.5 / 3.5;
+		padding: 0.5rem;
+		border: 3px solid var(--pico-primary);
 		border-radius: var(--pico-border-radius);
-	}
-
-	.card-won h4 {
-		margin: 0 0 1rem 0;
-		color: var(--pico-muted-color);
-		font-size: clamp(0.875rem, 2.5vw, 1rem);
-	}
-
-	.card-display {
+		text-align: center;
+		background: var(--pico-card-background-color);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
-		padding: 1rem;
-		background-color: var(--pico-card-background-color);
-		border: 2px solid var(--pico-primary);
-		border-radius: var(--pico-border-radius);
+		justify-content: center;
+		align-items: center;
+		gap: 0.25rem;
+		position: relative;
+		overflow: hidden;
 	}
 
-	.card-display.disgrace {
+	.status-card::before {
+		content: '';
+		position: absolute;
+		top: -50%;
+		left: -50%;
+		width: 200%;
+		height: 200%;
+		background: linear-gradient(
+			45deg,
+			transparent 30%,
+			rgba(255, 255, 255, 0.1) 50%,
+			transparent 70%
+		);
+		animation: shimmer 3s infinite;
+	}
+
+	@keyframes shimmer {
+		0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+		100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+	}
+
+	.status-card.luxury {
+		border-color: var(--pico-primary);
+	}
+
+	.status-card.disgrace {
 		border-color: var(--pico-del-color);
 		background: linear-gradient(135deg, var(--pico-card-background-color) 0%, rgba(255, 0, 0, 0.1) 100%);
 	}
 
-	.card-display strong {
-		font-size: clamp(1rem, 3vw, 1.2rem);
+	.card-name {
+		font-size: clamp(0.7rem, 2.5vw, 0.85rem);
+		font-weight: 600;
+		line-height: 1.2;
+		position: relative;
+		z-index: 1;
 	}
 
 	.card-value {
-		font-size: clamp(1.5rem, 5vw, 2rem);
+		font-size: clamp(1.5rem, 6vw, 2rem);
 		font-weight: bold;
 		color: var(--pico-primary);
+		position: relative;
+		z-index: 1;
 	}
 
-	.card-display.disgrace .card-value {
+	.status-card.disgrace .card-value {
 		color: var(--pico-del-color);
 	}
 
-	.disgrace-info h3 {
-		margin: 0 0 0.5rem 0;
-		font-size: clamp(1.25rem, 4vw, 1.5rem);
-	}
-
-	.disgrace-note {
-		font-size: clamp(0.875rem, 2.5vw, 1rem);
-		color: var(--pico-muted-color);
-		font-style: italic;
-	}
-
-	.card-won.disgrace-card {
-		border: 2px solid var(--pico-del-color);
-	}
-
-	.bids-section {
-		margin-top: 1.5rem;
-		padding: 1rem;
-		background-color: rgba(255, 0, 0, 0.05);
-		border-radius: var(--pico-border-radius);
-		border: 1px solid var(--pico-del-color);
-	}
-
-	.bids-section h4 {
-		margin: 0 0 1rem 0;
-		color: var(--pico-del-color);
-		font-size: clamp(0.875rem, 2.5vw, 1rem);
-	}
-
-	.bids-list {
+	.result-info {
+		flex: 1;
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
 	}
 
-	.bid-item {
+	.winner-row {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0.5rem;
-		background-color: var(--pico-card-background-color);
-		border-radius: var(--pico-border-radius);
-		border-left: 3px solid var(--pico-del-color);
 	}
 
-	.bid-item strong {
+	.player-dot {
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.player-dot.small {
+		width: 8px;
+		height: 8px;
+	}
+
+	.player-name {
+		font-weight: 700;
+		font-size: clamp(1rem, 3vw, 1.15rem);
+	}
+
+	.result-detail {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.4rem 0.6rem;
+		border-radius: var(--pico-border-radius);
+		font-size: clamp(0.85rem, 2.5vw, 0.95rem);
+	}
+
+	.result-detail.paid {
+		background: linear-gradient(90deg, transparent 0%, rgba(0, 255, 0, 0.1) 100%);
+		border-left: 3px solid var(--pico-ins-color);
+	}
+
+	.result-detail.refund {
+		background: linear-gradient(90deg, transparent 0%, rgba(255, 215, 0, 0.1) 100%);
+		border-left: 3px solid #d4af37;
+	}
+
+	.result-detail .label {
+		color: var(--pico-muted-color);
+	}
+
+	.result-detail .value {
+		font-weight: 700;
+	}
+
+	.result-detail.paid .value {
+		color: var(--pico-ins-color);
+	}
+
+	.result-detail.refund .value {
+		color: #d4af37;
+	}
+
+	.losers-section {
+		margin-top: 0.5rem;
+		padding: 0.5rem;
+		background: rgba(255, 0, 0, 0.05);
+		border-radius: var(--pico-border-radius);
+		border: 1px solid var(--pico-del-color);
+	}
+
+	.losers-label {
+		display: block;
+		font-size: clamp(0.7rem, 2vw, 0.8rem);
+		color: var(--pico-del-color);
+		font-weight: 600;
+		margin-bottom: 0.35rem;
+	}
+
+	.loser-row {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		font-size: clamp(0.75rem, 2vw, 0.85rem);
+		padding: 0.2rem 0;
+	}
+
+	.loser-name {
 		flex: 1;
 	}
 
-	.bid-amount {
-		font-weight: bold;
-		font-size: clamp(0.875rem, 2vw, 1rem);
+	.loser-amount {
+		font-weight: 600;
 		color: var(--pico-del-color);
 	}
 
 	.no-winner {
-		padding: 2rem 0;
+		text-align: center;
+		padding: 1rem 0;
 	}
 
 	.no-winner p {
-		margin-bottom: 1rem;
-		font-size: clamp(1rem, 2.5vw, 1.1rem);
+		margin: 0;
+		font-size: clamp(1rem, 3vw, 1.1rem);
+		font-weight: 600;
 	}
 
-	.card-info {
+	.no-winner small {
 		color: var(--pico-muted-color);
-		font-size: clamp(0.875rem, 2vw, 1rem);
 	}
 
 	footer {
 		text-align: center;
-		margin-top: 1rem;
+		padding-top: 0.5rem;
 	}
 
 	footer button {
-		min-width: min(150px, 100%);
+		min-width: 120px;
 		font-size: clamp(0.875rem, 2.5vw, 1rem);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.status-card::before {
+			animation: none;
+		}
+		article {
+			animation: none;
+		}
 	}
 </style>
