@@ -44,6 +44,7 @@
 	let lobbyPlayers = $state<Array<{ playerId: string; playerName: string }>>([]);
 	let turnTimerSeconds = $state(45);
 	let turnTimeRemaining = $state(0); // Seconds remaining in current turn
+	let timerResetKey = $state(0); // Incremented to force timer reset on turn changes
 	let showGameIntro = $state(true); // Show intro until user creates/joins a room
 	
 	// UI Modal state
@@ -83,6 +84,29 @@
 	const bannerLocalBid = $derived.by(() => {
 		const _ = store.updateCounter;
 		return store.localPlayer?.getCurrentBidAmount() ?? 0;
+	});
+	
+	// Reset timer when turn changes - track player index and auction to detect turn changes
+	// This needs to track both because new rounds with the same starting player should still reset
+	let lastTurnIdentity = $state({ playerIndex: -1, cardId: '' });
+	
+	$effect(() => {
+		// Get current turn identity - use the card id as auction identifier
+		const playerIndex = store.currentPlayerIndex;
+		const cardId = store.currentCard?.id ?? '';
+		
+		// Check if turn identity has changed
+		const turnChanged = playerIndex !== lastTurnIdentity.playerIndex || 
+		                    cardId !== lastTurnIdentity.cardId;
+		
+		if (turnChanged && playerIndex >= 0) {
+			// Update tracked identity
+			lastTurnIdentity = { playerIndex, cardId };
+			
+			// Increment timer reset key to force timer recreation
+			timerResetKey++;
+			console.log('[Timer Reset] Turn changed - playerIndex:', playerIndex, 'cardId:', cardId, 'timerResetKey:', timerResetKey);
+		}
 	});
 	
 	// Helper to show toast messages
@@ -668,7 +692,7 @@
 			<!-- Turn Timer in Header -->
 			{#if store.currentPhase !== GamePhase.SETUP && store.currentPhase !== GamePhase.FINISHED && store.currentPhase !== GamePhase.SCORING}
 				<div class="header-timer">
-					{#key store.currentPlayerIndex}
+					{#key timerResetKey}
 						<TurnTimer
 							duration={turnTimerSeconds}
 							onExpired={handleTurnTimeout}
