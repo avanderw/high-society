@@ -39,9 +39,9 @@
 	type MoneyColorTier = 'light' | 'normal' | 'dark';
 
 	const MONEY_COLOR_PALETTE: Record<MoneyColorTier, { fill: string; stroke: string; text: string }> = {
-		light: { fill: '#f7eed3', stroke: '#d8bf78', text: '#2f2200' },
-		normal: { fill: '#f3d36a', stroke: '#c99b1f', text: '#2c1f00' },
-		dark: { fill: '#d8a328', stroke: '#9f6b00', text: '#221500' }
+		light: { fill: '#f7eed3', stroke: '#d8bf78', text: '#1a1a1a' },
+		normal: { fill: '#f3d36a', stroke: '#c99b1f', text: '#1a1a1a' },
+		dark: { fill: '#9f6b00', stroke: '#d8a328', text: '#fff' }
 	};
 
 	function getMoneyColorTier(value: number): MoneyColorTier {
@@ -180,7 +180,8 @@
 		flex-wrap: wrap;
 		gap: 0.3rem;
 		margin: 0.2rem 0;
-		padding-bottom: 0.1rem;
+		justify-content: center;
+		padding-bottom: 0;
 	}
 
 	@media (min-width: 768px) {
@@ -198,7 +199,7 @@
 		padding: 0.25rem;
 		border: 2px solid var(--card-color, var(--pico-muted-border-color));
 		border-radius: var(--pico-border-radius);
-		background: linear-gradient(155deg, var(--card-fill, var(--pico-card-background-color)) 0%, var(--pico-card-background-color) 70%);
+		background: var(--card-fill, var(--pico-card-background-color));
 		color: var(--card-text, inherit);
 		cursor: pointer;
 		transition: all 0.2s;
@@ -250,7 +251,7 @@
 	.money-card.selected {
 		border-color: var(--card-color);
 		border-width: 3px;
-		background: linear-gradient(135deg, var(--card-fill, var(--card-color)) 0%, var(--pico-card-background-color) 100%);
+		background: var(--card-fill, var(--card-color));
 		box-shadow: 0 0 12px var(--card-color);
 		animation: cardSelect 0.2s ease-out;
 	}
@@ -264,7 +265,7 @@
 		opacity: 0.65;
 		cursor: default;
 		border-color: var(--card-color);
-		background: linear-gradient(160deg, var(--card-fill, var(--pico-card-background-color)) 0%, var(--pico-card-background-color) 85%);
+		background: var(--card-fill, var(--pico-card-background-color));
 	}
 
 	.card-content {
@@ -276,11 +277,13 @@
 		font-size: clamp(1.25rem, 3vw, 1.5rem);
 		font-weight: bold;
 		margin-bottom: 0.25rem;
+		text-shadow: 0 1px 3px rgba(0,0,0,0.25);
 	}
 
 	small {
 		display: block;
 		font-size: clamp(0.65rem, 1.5vw, 0.75rem);
+		text-shadow: 0 1px 2px rgba(0,0,0,0.18);
 	}
 
 	footer p {
