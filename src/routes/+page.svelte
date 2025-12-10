@@ -713,15 +713,18 @@
 		</section>
 	{/if}
 	
-	<!-- Luxury Discard Waiting Banner -->
-	{#if !showLuxuryDiscard && !store.isMyTurn && store.gameState}
+	<!-- Luxury Discard Waiting State - Shows when no auction but someone needs to discard -->
+	{#if !store.currentAuction && store.gameState && store.currentPhase !== GamePhase.FINISHED && store.currentPhase !== GamePhase.SCORING}
 		{@const publicState = store.gameState.getPublicState()}
-		{@const currentPlayerPublic = publicState.players[store.currentPlayerIndex]}
-		{#if currentPlayerPublic?.hasPendingLuxuryDiscard}
-			<section class="waiting-banner">
-				<mark style="background-color: var(--pico-del-color); padding: 0.5rem 1rem; border-radius: var(--pico-border-radius);">
-					⏳ Waiting for <strong>{currentPlayerPublic.name}</strong> to discard a luxury card (Faux Pas effect)
-				</mark>
+		{@const playerWithPendingDiscard = publicState.players.find(p => p.hasPendingLuxuryDiscard)}
+		{#if playerWithPendingDiscard}
+			<section class="waiting-banner luxury-discard-waiting">
+				<article class="waiting-card">
+					<div class="waiting-icon">⏳</div>
+					<h3>Luxury Discard Required</h3>
+					<p>Waiting for <strong>{playerWithPendingDiscard.name}</strong> to discard a luxury card</p>
+					<small>(Faux Pas effect)</small>
+				</article>
 			</section>
 		{/if}
 	{/if}
@@ -971,6 +974,41 @@
 		text-align: center;
 		margin: 0.25rem 0 0.75rem;
 		animation: pulse-subtle 2s ease-in-out infinite;
+	}
+
+	.luxury-discard-waiting {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		min-height: 200px;
+		padding: 1rem;
+	}
+
+	.luxury-discard-waiting .waiting-card {
+		text-align: center;
+		padding: 2rem;
+		max-width: 400px;
+		margin: 0;
+		background: linear-gradient(135deg, rgba(239, 83, 80, 0.1) 0%, var(--pico-card-background-color) 100%);
+		border: 2px solid var(--pico-del-color);
+	}
+
+	.luxury-discard-waiting .waiting-icon {
+		font-size: 3rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.luxury-discard-waiting h3 {
+		margin-bottom: 0.5rem;
+		color: var(--pico-del-color);
+	}
+
+	.luxury-discard-waiting p {
+		margin-bottom: 0.25rem;
+	}
+
+	.luxury-discard-waiting small {
+		color: var(--pico-muted-color);
 	}
 
 	@keyframes pulse-subtle {
