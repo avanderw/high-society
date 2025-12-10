@@ -10,10 +10,9 @@
 	type Props = {
 		onRoomReady: (roomId: string, playerId: string, playerName: string, isHost: boolean, players: Array<{ playerId: string; playerName: string }>, turnTimerSeconds: number) => void;
 		initialRoomCode?: string;
-		onModeChange?: (mode: 'menu' | 'create' | 'join') => void;
 	};
 	
-	let { onRoomReady, initialRoomCode = '', onModeChange }: Props = $props();
+	let { onRoomReady, initialRoomCode = '' }: Props = $props();
 	
 	let mode = $state<'menu' | 'create' | 'join'>(initialRoomCode ? 'join' : 'menu');
 	let playerName = $state('');
@@ -114,7 +113,6 @@
 			// Don't set connectedPlayers manually - let the room:joined event handle it
 			
 			mode = 'create';
-			onModeChange?.(mode);
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to create room';
 		} finally {
@@ -225,7 +223,6 @@
 		
 		// Reset state
 		mode = 'menu';
-		onModeChange?.(mode);
 		currentRoomId = '';
 		currentPlayerId = '';
 		isHost = false;
@@ -235,7 +232,8 @@
 	}
 
 	function copyRoomCode() {
-		navigator.clipboard.writeText(currentRoomId).then(() => {
+		const shareUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoomId}`;
+		navigator.clipboard.writeText(shareUrl).then(() => {
 			copiedToClipboard = true;
 			setTimeout(() => {
 				copiedToClipboard = false;
@@ -297,20 +295,18 @@
 
 	{#if mode === 'menu'}
 		<div class="menu-container">
+			<p>Choose how to play:</p>
+			
 			<div class="button-group">
-			<button 
-				onclick={() => {
-					mode = 'create';
-					onModeChange?.(mode);
-				}} 
-				disabled={isConnecting}
-			>
-				Create Room
-			</button>				<button 
-					onclick={() => {
-						mode = 'join';
-						onModeChange?.(mode);
-					}}
+				<button 
+					onclick={() => mode = 'create'} 
+					disabled={isConnecting}
+				>
+					Create Room
+				</button>
+				
+				<button 
+					onclick={() => mode = 'join'}
 					class="secondary"
 					disabled={isConnecting}
 				>
@@ -350,10 +346,7 @@
 				</button>
 				
 				<button 
-					onclick={() => {
-						mode = 'menu';
-						onModeChange?.(mode);
-					}}
+					onclick={() => mode = 'menu'}
 					class="secondary"
 					disabled={isConnecting}
 				>
@@ -370,20 +363,23 @@
 						✓ Copied to clipboard!
 					</div>
 				{/if}
-				<button 
-					class="code-box-button"
-					onclick={copyRoomCode}
-					title="Click to copy room code"
-				>
+				<div class="code-box">
 					<code class="room-code">{currentRoomId}</code>
-				</button>
+				</div>
 				<div class="code-actions">
+					<button 
+						onclick={copyRoomCode}
+						class="secondary"
+						title="Copy to clipboard"
+					>
+						📋 Copy
+					</button>
 					<button 
 						onclick={shareRoomCode}
 						class="secondary"
-						title="Share room link"
+						title="Share room code"
 					>
-						📤 Share Link
+						📤 Share
 					</button>
 				</div>
 			</div>
@@ -418,17 +414,17 @@
 
 			<div class="button-group">
 				<button 
-					onclick={leaveRoom}
-					class="secondary"
-				>
-					Cancel
-				</button>
-				
-				<button 
 					onclick={startGame}
 					disabled={connectedPlayers.length < 2 || connectedPlayers.length > 5}
 				>
 					Start Game
+				</button>
+				
+				<button 
+					onclick={leaveRoom}
+					class="secondary"
+				>
+					Cancel
 				</button>
 			</div>
 		</div>
@@ -474,10 +470,7 @@
 				</button>
 				
 				<button 
-					onclick={() => {
-						mode = 'menu';
-						onModeChange?.(mode);
-					}}
+					onclick={() => mode = 'menu'}
 					class="secondary"
 					disabled={isConnecting}
 				>
@@ -614,40 +607,25 @@
 		}
 	}
 
-	.code-box-button {
-		display: block;
-		width: 100%;
-		margin: 0.5rem 0;
-		padding: 0;
-		border: 2px solid var(--pico-primary);
-		background: transparent;
-		border-radius: var(--pico-border-radius);
-		cursor: pointer;
-		transition: all 0.2s ease;
+	.code-box {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin: 1rem 0;
 	}
 
-	.code-box-button:hover {
-		border-color: var(--pico-primary-hover);
-		background-color: var(--pico-primary-focus);
-		transform: scale(1.02);
-	}
-
-	.code-box-button:active {
-		transform: scale(0.98);
-	}
-
-	.code-box-button .room-code {
+	.code-box .room-code {
 		font-size: clamp(1.25rem, 4vw, 1.75rem);
 		font-weight: bold;
-		padding: 0.75rem 1rem;
+		padding: 1rem 1.5rem;
 		background-color: var(--pico-code-background-color);
-		border-radius: calc(var(--pico-border-radius) - 2px);
+		border-radius: var(--pico-border-radius);
 		letter-spacing: 0.05em;
 		word-break: break-word;
 		user-select: all;
 		text-align: center;
-		display: block;
-		width: 100%;
+		flex: 1;
+		max-width: 100%;
 	}
 
 	.code-actions {
@@ -662,46 +640,15 @@
 		margin: 0;
 		padding: 0.5rem 1rem;
 		flex: 1;
-		max-width: 100%;
+		min-width: 120px;
+		max-width: 200px;
 	}
 
 	/* Mobile optimization */
 	@media (max-width: 576px) {
-		article {
-			padding: 0.5rem;
-			margin: 0.5rem;
-		}
-
-		article header {
-			padding: 0.5rem 0;
-			margin-bottom: 0.5rem;
-		}
-
-		article header h2 {
-			margin: 0;
+		.code-box .room-code {
 			font-size: 1.25rem;
-		}
-
-		.button-group {
-			margin-top: 0.75rem;
-			gap: 0.5rem;
-		}
-
-		.room-lobby {
-			gap: 0.75rem;
-		}
-
-		.player-list {
-			padding: 0.75rem;
-		}
-
-		.game-settings {
-			padding: 0.75rem;
-		}
-
-		.code-box-button .room-code {
-			font-size: 1.25rem;
-			padding: 0.75rem;
+			padding: 1rem;
 			letter-spacing: 0.05em;
 		}
 

@@ -449,6 +449,14 @@
 			return;
 		}
 		
+		// In multiplayer, only the host should execute the pass logic
+		// Non-host players should wait for the host to process the timeout
+		const guard = shouldExecuteGameLogic(multiplayerOrchestrator ? multiplayerService : null);
+		if (!guard.shouldExecute) {
+			console.log('[handleTurnTimeout] Not host - waiting for host to process timeout');
+			return;
+		}
+		
 		console.log('Turn timeout - auto-passing');
 		pass();
 	}
@@ -563,9 +571,6 @@
 		<!-- Game Introduction -->
 		{#if showGameIntro}
 		<article class="game-intro">
-			<header>
-				<h2>Welcome to High Society</h2>
-			</header>
 			<section>
 				<p>
 					<strong>High Society</strong> is an auction card game designed by Reiner Knizia where you play as wealthy socialites 
@@ -579,14 +584,6 @@
 					<strong>Gameplay:</strong> Each round, a status card is revealed. Players bid using their money cards to win luxury items 
 					and prestige multipliers, while avoiding disgrace cards. The game ends when the 4th special trigger card appears.
 				</p>
-				<div class="rules-link">
-					<small>
-						Learn the full rules in the 
-						<a href="https://github.com/avanderw/high-society/blob/main/20251001T142857_high-society-rules_0b8224f9.md" target="_blank" rel="noopener noreferrer">
-							game documentation
-						</a>
-					</small>
-				</div>
 			</section>
 		</article>
 		{/if}

@@ -16,13 +16,17 @@
 	let timeRemaining = $state(duration);
 	let intervalId: number | null = null;
 
-	// Reset timer when component remounts (use {#key} in parent)
+	// Reset timer when duration changes
 	$effect(() => {
 		timeRemaining = duration;
 	});
 
-	// Manage countdown interval
+	// Manage countdown interval - explicitly watch duration and paused
 	$effect(() => {
+		// Use duration in the effect body to create a dependency
+		const currentDuration = duration;
+		const currentPaused = paused;
+		
 		// Clear any existing interval
 		if (intervalId !== null) {
 			clearInterval(intervalId);
@@ -30,7 +34,7 @@
 		}
 
 		// Don't run if paused
-		if (paused) {
+		if (currentPaused) {
 			return;
 		}
 
